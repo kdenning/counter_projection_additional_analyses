@@ -179,7 +179,7 @@ levels(clean_data2$Race) <- c("American Indian/Native Alaskan",
 #data with just the variables for analysis for stereotyping
 stereo_analysis <- clean_data2 %>% 
   select(subid, MFQ_Number, MFQSelf_c, MFQStereo_c, MFQTarg, ident_c, PT_effects, 
-         inoutgroup_effects, Man_PT) %>%
+         inoutgroup_effects, Man_PT, par_cand) %>%
   unique() %>% 
   na.omit()
 ```
@@ -199,7 +199,7 @@ stereo_analysis <- clean_data2 %>%
 projmodel_stereo_included <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c *
                                     inoutgroup_effects * ident_c +
                                     (MFQSelf_c|subid), 
-                                 data = clean_data2)
+                                 data = stereo_analysis)
 
 #results
 tab_model(projmodel_stereo_included,
@@ -208,8 +208,8 @@ tab_model(projmodel_stereo_included,
 ```
 
 ```{r}
-describe(clean_data2$ident_c)
-describe(clean_data2$inoutgroup_effects)
+describe(stereo_analysis$ident_c)
+describe(stereo_analysis$inoutgroup_effects)
 
 initial_study_3way <- effect(term = "MFQSelf_c:inoutgroup_effects:ident_c", 
                            xlevels = list(ident_c = c(-1.8, 0, 1.8), 
@@ -247,8 +247,6 @@ ggplot(initial_study_3way, aes(MFQSelf_c,
        y = "MFQ responses for target")
 ```
 
-## Main effect of group membership
-
 ```{r main effect group plot set-up, include = FALSE}
 # getting the information for the main effect of group
 initial_study_main_group <- effect(term = "MFQSelf_c:inoutgroup_effects", 
@@ -278,6 +276,54 @@ ggplot(initial_study_main_group, aes(MFQSelf_c,
        y = "MFQ responses for target")
 ```
 
+## With political affiliation as moderator
+```{r stereo analysis by cand}
+#model
+is_cand <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c *
+                                    inoutgroup_effects * ident_c * par_cand +
+                                    (MFQSelf_c|subid), 
+                                 data = stereo_analysis)
+
+#results
+tab_model(is_cand,
+          title = "Projection moderated by stereotyping")
+
+```
+
+```{r is group by cand}
+levels(stereo_analysis$par_cand)
+# getting the information for the main effect of group
+is_group_cand <- effect(term = "MFQSelf_c:inoutgroup_effects:par_cand", 
+                             xlevels = list(inoutgroup_effects = c(-.5,.5),
+                                            par_cand = c("Clinton", "Trump")), 
+                             mod = is_cand)
+
+is_group_cand <- as.data.frame(is_group_cand)
+
+is_group_cand$Group <- as.factor(is_group_cand$inoutgroup_effects)
+
+
+```
+
+```{r is group by cand}
+ggplot(is_group_cand, aes(MFQSelf_c, 
+                               fit, 
+                               group = Group, 
+                               color = Group)) +
+  geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black",
+              aes(linetype = Group)) +
+  facet_wrap(~par_cand)+
+  scale_linetype_manual("Group", breaks = c(-.5, .5), 
+                       labels = c("Out-group", "In-group"),
+                       values = c("solid", 
+                                  "dashed")) +
+  theme_minimal() +
+  labs(title = "Projection predicted by group membership",
+       subtitle = "Controlling for stereotyping",
+       x = "MFQ responses for self",
+       y = "MFQ responses for target")
+```   
+
 # MFQ sub areas
 
 ```{r mfq subscales}
@@ -285,14 +331,14 @@ ggplot(initial_study_main_group, aes(MFQSelf_c,
 mfq_binding <- clean_data2 %>% 
   filter(MFQ_Number %in% c("3", "4", "5", "9", "10", "11", "14", "15", "16", 
                            "19", "20", "21", "25", "26", "27", "30", "31", "32")) %>%
-  select(subid, MFQ_Number, MFQTarg, MFQSelf_c, MFQStereo_c, inoutgroup_effects, ident_c) %>% 
+  select(subid, MFQ_Number, MFQTarg, MFQSelf_c, MFQStereo_c, inoutgroup_effects, ident_c, par_cand) %>% 
   unique() %>% 
   na.omit()
 
 mfq_individual <- clean_data2 %>% 
   filter(MFQ_Number %in% c("1", "2", "7", "8", "12", "13", "17", "18", "23", 
                            "24", "28", "29")) %>%
-  select(subid, MFQ_Number, MFQTarg, MFQSelf_c, MFQStereo_c, inoutgroup_effects, ident_c) %>% 
+  select(subid, MFQ_Number, MFQTarg, MFQSelf_c, MFQStereo_c, inoutgroup_effects, ident_c, par_cand) %>% 
   unique() %>% 
   na.omit()
 ```
@@ -380,6 +426,21 @@ ggplot(is_binding_group, aes(MFQSelf_c,
        y = "MFQ responses for target")
 ```
 
+### Binding including participant vote
+
+```{r mfq binding model cand}
+#model
+is_mfqbinding_cand <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c *
+                                    inoutgroup_effects * ident_c * par_cand +
+                                    (MFQSelf_c|subid), 
+                                 data = mfq_binding)
+
+#results
+tab_model(is_mfqbinding_cand,
+          title = "Projection moderated by stereotyping for binding morals")
+```
+
+
 ### Individualizing
 
 ```{r mfq individual model}
@@ -460,6 +521,20 @@ ggplot(is_indiv_group, aes(MFQSelf_c,
        subtitle = "Controlling for stereotyping",
        x = "MFQ responses for self",
        y = "MFQ responses for target")
+```
+
+### Individualizing including participant vote
+
+```{r mfq individual model cand}
+#model
+is_mfqindividual_cand <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c *
+                                    inoutgroup_effects * ident_c * par_cand +
+                                    (MFQSelf_c|subid), 
+                                 data = mfq_individual)
+
+#results
+tab_model(is_mfqindividual_cand,
+          title = "Projection moderated by stereotyping for individual morals")
 ```
 
 ## Follow-up 1
