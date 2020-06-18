@@ -1,0 +1,311 @@
+---
+title: "Counter Projection - Additional Analyses"
+author: "Kathryn Denning"
+date: "6/18/2020"
+output: 
+  html_document:
+    code_folding: "hide"
+    toc: true
+    toc_float: true
+    dev: png
+  pdf_document:
+    dev: cairo_pdf
+    latex_engine: xelatex
+editor_options: 
+  chunk_output_type: console
+---
+```{r set-up, include = FALSE}
+#loading packages
+library(foreign)
+library(reshape2)
+library(tidyverse)
+library(dplyr)
+library(car)
+library(haven)
+library(psych)
+library(lmerTest)
+library(sjPlot)
+library(reshape2)
+library(data.table)
+library(emmeans)
+library(effects)
+library(Cairo)
+library(tinytex)
+
+#making it round to three decimal places
+options(scipen = 999)
+knitr::opts_knit$set(dev.args = list(type = "cairo"))
+
+#Setting global chunk options
+knitr::opts_chunk$set(echo = TRUE,
+                      message = FALSE,
+                      warning = FALSE)
+```
+
+```{r data import and cleaning initial study, include = FALSE}
+#importing data with IP address and lat/long to look for MTurk bots
+bot_check <- Import("ppt1_with lat long to check bots.csv") 
+
+bot_check <- bot_check[-c(1,2),,drop = F] 
+
+#importing the data that has been reviewed for completion of PT task
+wide_data <- Import("ppt1_fulldata_ptcleanedonly.xlsx") 
+
+#dropping the longer description of each question
+wide_dropped1 <- wide_data[-c(1),,drop = F] 
+
+#removing repeat IP addresses since those often indicate bots
+#getting a dataset with only subid and IPAdress
+ip <- bot_check %>% 
+  select(subid, IPAddress)
+
+#identifying the repeat IP addresses
+repeat_ips <- ip$IPAddress[duplicated(ip$IPAddress)]
+
+#getting the corresponding subids
+bot_check %>% 
+  select(subid, IPAddress, LocationLatitude, LocationLongitude) %>% 
+  filter(IPAddress %in% c("24.241.223.182", "72.79.119.56", "108.230.124.237", "172.97.7.163", "67.236.228.7", "68.190.36.43"))
+
+#removing the subids from the overall dataset that has already been cleaned to remove people who did not correctly complete the PT narrative task
+no_bots <- wide_data %>% 
+  filter(!subid %in% c(96, 99, 166, 167, 171, 239, 265, 345, 613, 758, 778, 779))
+
+no_bots <- no_bots[-c(1), ] 
+#Data cleaning
+clean_data <- no_bots %>% 
+  ## drop two MFQ items that aren't actually the survey - 6, 22 in each
+select(-MFQSelf_6, -MFQSelf_22, -MFQTrump_6, -MFQTrump_22, -MFQClin_6,
+       -MFQClin_22, -MFQTarg_6, -MFQTarg_22) %>% 
+  ## dropping PANAS and exploratory items for this study to make data more manageable
+  select(-c(PANAS1_1:PANAS1_20, PANAS2_1:PANAS2_20, 
+            gender_writein, race_writein, birth_writein, race_writein, 
+            language_writein, raise_writein)) %>% 
+  mutate_if(is.factor, as.numeric) %>% 
+  ### Wrangling data to get MFQ for self, MFQ to targ, MFQ for stereotype, column for candidate, average of IG identification
+  gather("MFQ_Type", "MFQ_Score", MFQSelf_1:MFQTarg_32) %>% 
+  separate(.,MFQ_Type, c("MFQ_Type", "MFQ_Number"),"\\_") %>% 
+  spread(MFQ_Type, MFQ_Score) %>% 
+  gather("IG_Type", "IG_Score", IG_Clin_1:IG_Trump_14) %>% 
+  separate(.,IG_Type, c("Drop", "IG_Type", "IG_Number"),"\\_") %>% 
+  filter(!is.na(IG_Score)) %>% 
+  group_by(subid) %>% 
+  #average of in-group identification for each subject
+  #making candidate they voted for a factor
+  mutate(Cand_votedfor = ifelse(IG_Type == "Clin", 1, 
+                                ifelse(IG_Type == "Trump", 0, NA))) %>% 
+  gather("Day_key", "Day_content", Day_Clin_In_PT:Day_Trump_In_C) %>% 
+  mutate(Day_key = as.factor(Day_key)) %>% 
+  filter(!is.na(Day_content)) %>% 
+  mutate(inoutgroup = fct_collapse(Day_key, 
+                                   Ingroup = c("Day_Clin_In_C", 
+                                                "Day_Clin_In_PT", 
+                                                "Day_Trump_In_C", 
+                                                "Day_Trump_In_PT"), 
+                                   Outgroup = c("Day_Clin_Out_C", 
+                                                "Day_Clin_Out_PT",
+                                                "Day_Trump_Out_C", 
+                                                "Day_Trump_Out_PT")),
+         PT = fct_collapse(Day_key,
+                           PT = c("Day_Clin_In_PT",
+                                  "Day_Trump_In_PT",
+                                  "Day_Clin_Out_PT",
+                                  "Day_Trump_Out_PT"),
+                           control = c("Day_Clin_In_C",
+                                       "Day_Trump_In_C",
+                                       "Day_Clin_Out_C",
+                                       "Day_Trump_Out_C")),
+         par_cand = fct_collapse(Day_key,
+                                  Clinton = c("Day_Clin_In_PT",
+                                           "Day_Clin_Out_PT",
+                                           "Day_Clin_In_C",
+                                           "Day_Clin_Out_C"),
+                                  Trump = c("Day_Trump_In_PT",
+                                            "Day_Trump_Out_PT",
+                                            "Day_Trump_In_C",
+                                            "Day_Trump_Out_C")),
+         targ_cand = fct_collapse(Day_key,
+                                  Clinton = c("Day_Clin_In_PT",
+                                              "Day_Clin_In_C",
+                                              "Day_Trump_Out_PT",
+                                              "Day_Trump_Out_C"),
+                                  Trump = c("Day_Clin_Out_PT",
+                                            "Day_Clin_Out_C",
+                                            "Day_Trump_In_PT",
+                                            "Day_Trump_In_C")))
+
+clean_data[,1:31] <- sapply(clean_data[,1:31],as.numeric)
+clean_data[,34:36] <- sapply(clean_data[,34:36],as.numeric)
+
+clean_data2 <- clean_data %>%
+  mutate(IG_ave = mean(IG_Score)) %>% 
+  filter(!is.na(IG_ave)) %>% 
+  select(-Drop) %>% 
+  #effects coding for group with ingroup = .5 and outgorup = -.5, for PT .5 = PT and Control = -.5
+  mutate(inoutgroup_effects = ifelse(inoutgroup == "Ingroup", .5,
+                                     ifelse(inoutgroup == "Outgroup", -.5, NA)),
+         PT_effects = ifelse(PT == "PT", .5, 
+                             ifelse(PT == "control", -.5, NA)),
+         targ_cand = ifelse(targ_cand == "Clinton", 1, 
+                            ifelse(targ_cand == "Trump", 2, NA)),
+         MFQStereo = ifelse(par_cand == "Clinton", MFQClin, 
+                            ifelse(par_cand == "Trump", MFQTrump, NA))) %>% 
+  #grand mean centering MFQ for self
+  mutate(MFQSelf_c = MFQSelf - mean(MFQSelf)) %>%  
+  #removing people who failed the manipulation check
+  filter(targ_cand == 1 & Man_TargVote == 1 | 
+           targ_cand == 2 & Man_TargVote == 2) %>%
+  select(-Day_content, -Day_key) %>% 
+  #effects coding candidate
+  mutate(Targ_Cand_effectscoded = ifelse(targ_cand == "1", .5, 
+                                         ifelse(targ_cand == "2", -.5, NA)),
+         MFQStereo_c = MFQStereo - mean(MFQStereo, na.rm = TRUE))
+
+#for some reason, this wouldn't work in the piping above, so had to hard code it
+#grand mean centering for ingroup identification
+clean_data2$ident_c <- clean_data2$IG_ave - mean(clean_data2$IG_ave, na.rm = TRUE)
+clean_data2$Gender <- as.factor(clean_data2$Gender)
+levels(clean_data2$Gender) <- c("Male", "Female", "Other")
+clean_data2$Race <- as.factor(clean_data2$Race)
+levels(clean_data2$Race) <- c("American Indian/Native Alaskan", 
+                             "Asian", 
+                             "Black",
+                             "Latinx",
+                             "Middle Eastern",
+                             "Caucasian",
+                             "Multiracial",
+                             "Other")
+
+#data with just the variables for analysis for stereotyping
+stereo_analysis <- clean_data2 %>% 
+  select(subid, MFQ_Number, MFQSelf_c, MFQStereo_c, MFQTarg, ident_c, PT_effects, 
+         inoutgroup_effects, Man_PT) %>%
+  unique() %>% 
+  na.omit()
+```
+
+```{r data import and cleaning F1}
+
+```
+
+```{r data import and cleaning F2}
+
+```
+
+# Stereotyping analysis: Initial Study
+
+```{r stereo analysis}
+#model
+projmodel_stereo_included <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c *
+                                    inoutgroup_effects * ident_c +
+                                    (MFQSelf_c|subid), 
+                                 data = clean_data2)
+
+#results
+tab_model(projmodel_stereo_included,
+          title = "Projection moderated by stereotyping")
+
+```
+
+```{r}
+describe(clean_data2$ident_c)
+describe(clean_data2$inoutgroup_effects)
+
+initial_study_3way <- effect(term = "MFQSelf_c:inoutgroup_effects:ident_c", 
+                           xlevels = list(ident_c = c(-1.8, 0, 1.8), 
+                                         inoutgroup_effects = c(-.5,.5)), 
+                           mod = projmodel_stereo_included)
+
+initial_study_3way <- as.data.frame(initial_study_3way)
+
+initial_study_3way$Group <- as.factor(initial_study_3way$inoutgroup_effects)
+initial_study_3way$Identification <- as.factor(initial_study_3way$ident_c)
+
+ident_label <- c("-1.8" = "Low identification \n (1 SD below)", 
+                 "0" = "Average identification",
+                 "1.8" = "High identificatiion \n(1 SD above)")
+
+```
+
+```{r three-way plot BW}
+ggplot(initial_study_3way, aes(MFQSelf_c, 
+                             fit, 
+                             group = Group, 
+                             color = Group)) +
+  geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black", 
+              aes(linetype = Group)) +
+  facet_wrap(~Identification, labeller = 
+               labeller(Identification = ident_label)) +
+  scale_linetype_manual("Group", breaks = c(-.5, .5), 
+                       labels = c("Out-group", "In-group"),
+                       values = c("solid", 
+                                   "dashed")) +
+  theme_minimal() +
+  labs(title = "Projection predicted by in-group identification and group membership",
+       x = "MFQ responses for self",
+       y = "MFQ responses for target")
+```
+
+## Main effect of group membership
+
+```{r main effect group plot set-up, include = FALSE}
+# getting the information for the main effect of group
+initial_study_main_group <- effect(term = "MFQSelf_c:inoutgroup_effects", 
+                             xlevels = list(inoutgroup_effects = c(-.5,.5)), 
+                             mod = projmodel_stereo_included)
+
+initial_study_main_group <- as.data.frame(initial_study_main_group)
+
+initial_study_main_group$Group <- as.factor(initial_study_main_group$inoutgroup_effects)
+```
+
+```{r main effect group plot BW}
+ggplot(initial_study_main_group, aes(MFQSelf_c, 
+                               fit, 
+                               group = Group, 
+                               color = Group)) +
+  geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black",
+              aes(linetype = Group)) +
+  scale_linetype_manual("Group", breaks = c(-.5, .5), 
+                       labels = c("Out-group", "In-group"),
+                       values = c("solid", 
+                                  "dashed")) +
+  theme_minimal() +
+  labs(title = "Projection predicted by group membership",
+       x = "MFQ responses for self",
+       y = "MFQ responses for target")
+```
+
+# MFQ sub areas
+
+## Initial Study
+
+## Follow-up 1
+
+# BFI sub sreas: Follow-up 2
+
+# Political ideology breakdown of counter projection
+
+## Initial Study
+
+## Follow-up 1
+
+## Follow-up 2
+
+# Demographic differences in counter projection
+
+## Initial Study - Gender
+
+## Initial Study - Race
+
+## Follow-up 1 - Gender
+
+## Follow-up 1 - Race
+
+## Follow-up 2 - Gender
+
+## Follow-up 2 - Race
+
+# Downstream outcomes impacted by counter projection - Initial Study
+
+# Look at how they respond for in-group to address demand?
