@@ -242,6 +242,7 @@ ggplot(initial_study_3way, aes(MFQSelf_c,
                                    "dashed")) +
   theme_minimal() +
   labs(title = "Projection predicted by in-group identification and group membership",
+       subtitle = "Controlling for stereotyping",
        x = "MFQ responses for self",
        y = "MFQ responses for target")
 ```
@@ -272,13 +273,194 @@ ggplot(initial_study_main_group, aes(MFQSelf_c,
                                   "dashed")) +
   theme_minimal() +
   labs(title = "Projection predicted by group membership",
+       subtitle = "Controlling for stereotyping",
        x = "MFQ responses for self",
        y = "MFQ responses for target")
 ```
 
 # MFQ sub areas
 
+```{r mfq subscales}
+#separating MFQ into binding and individualizing subscales
+mfq_binding <- clean_data2 %>% 
+  filter(MFQ_Number %in% c("3", "4", "5", "9", "10", "11", "14", "15", "16", 
+                           "19", "20", "21", "25", "26", "27", "30", "31", "32")) %>%
+  select(subid, MFQ_Number, MFQTarg, MFQSelf_c, MFQStereo_c, inoutgroup_effects, ident_c) %>% 
+  unique() %>% 
+  na.omit()
+
+mfq_individual <- clean_data2 %>% 
+  filter(MFQ_Number %in% c("1", "2", "7", "8", "12", "13", "17", "18", "23", 
+                           "24", "28", "29")) %>%
+  select(subid, MFQ_Number, MFQTarg, MFQSelf_c, MFQStereo_c, inoutgroup_effects, ident_c) %>% 
+  unique() %>% 
+  na.omit()
+```
+
 ## Initial Study
+
+### Binding
+```{r mfq binding model}
+#model
+is_mfqbinding <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c *
+                                    inoutgroup_effects * ident_c +
+                                    (MFQSelf_c|subid), 
+                                 data = mfq_binding)
+
+#results
+tab_model(is_mfqbinding,
+          title = "Projection moderated by stereotyping for binding morals")
+```
+
+```{r 3 way mfq binding set up}
+describe(mfq_binding$ident_c)
+
+is_binding_3way <- effect(term = "MFQSelf_c:inoutgroup_effects:ident_c", 
+                           xlevels = list(ident_c = c(-1.78, 0, 1.78), 
+                                         inoutgroup_effects = c(-.5,.5)), 
+                           mod = is_mfqbinding)
+
+is_binding_3way <- as.data.frame(is_binding_3way)
+
+is_binding_3way$Group <- as.factor(is_binding_3way$inoutgroup_effects)
+is_binding_3way$Identification <- as.factor(is_binding_3way$ident_c)
+
+ident_label <- c("-1.78" = "Low identification \n (1 SD below)", 
+                 "0" = "Average identification",
+                 "1.78" = "High identificatiion \n(1 SD above)")
+
+```
+
+```{r 3way mfq binding plot}
+ggplot(is_binding_3way, aes(MFQSelf_c, 
+                             fit, 
+                             group = Group, 
+                             color = Group)) +
+  geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black", 
+              aes(linetype = Group)) +
+  facet_wrap(~Identification, labeller = 
+               labeller(Identification = ident_label)) +
+  scale_linetype_manual("Group", breaks = c(-.5, .5), 
+                       labels = c("Out-group", "In-group"),
+                       values = c("solid", 
+                                   "dashed")) +
+  theme_minimal() +
+  labs(title = "Projection of binding morals predicted by in-group identification and group membership",
+       subtitle = "Controlling for stereotyping",
+       x = "MFQ responses for self",
+       y = "MFQ responses for target")
+```
+
+```{r binding main effectgroup plot set-up, include = FALSE}
+# getting the information for the main effect of group
+is_binding_group <- effect(term = "MFQSelf_c:inoutgroup_effects", 
+                             xlevels = list(inoutgroup_effects = c(-.5,.5)), 
+                             mod = is_mfqbinding)
+
+is_binding_group <- as.data.frame(is_binding_group)
+
+is_binding_group$Group <- as.factor(is_binding_group$inoutgroup_effects)
+```
+
+```{r binding main effect group plot BW}
+ggplot(is_binding_group, aes(MFQSelf_c, 
+                               fit, 
+                               group = Group, 
+                               color = Group)) +
+  geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black",
+              aes(linetype = Group)) +
+  scale_linetype_manual("Group", breaks = c(-.5, .5), 
+                       labels = c("Out-group", "In-group"),
+                       values = c("solid", 
+                                  "dashed")) +
+  theme_minimal() +
+  labs(title = "Projection of binding morals predicted by group membership",
+       subtitle = "Controlling for stereotyping",
+       x = "MFQ responses for self",
+       y = "MFQ responses for target")
+```
+
+### Individualizing
+
+```{r mfq individual model}
+#model
+is_mfqindividual <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c *
+                                    inoutgroup_effects * ident_c +
+                                    (MFQSelf_c|subid), 
+                                 data = mfq_individual)
+
+#results
+tab_model(is_mfqindividual,
+          title = "Projection moderated by stereotyping for individualizing morals")
+```
+
+```{r 3 way mfq individual set up}
+describe(mfq_individual$ident_c)
+
+is_indiv_3way <- effect(term = "MFQSelf_c:inoutgroup_effects:ident_c", 
+                           xlevels = list(ident_c = c(-1.78, 0, 1.78), 
+                                         inoutgroup_effects = c(-.5,.5)), 
+                           mod = is_mfqindividual)
+
+is_indiv_3way <- as.data.frame(is_indiv_3way)
+
+is_indiv_3way$Group <- as.factor(is_indiv_3way$inoutgroup_effects)
+is_indiv_3way$Identification <- as.factor(is_indiv_3way$ident_c)
+
+ident_label <- c("-1.78" = "Low identification \n (1 SD below)", 
+                 "0" = "Average identification",
+                 "1.78" = "High identificatiion \n(1 SD above)")
+
+```
+
+```{r 3way mfq individual plot}
+ggplot(is_indiv_3way, aes(MFQSelf_c, 
+                             fit, 
+                             group = Group, 
+                             color = Group)) +
+  geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black", 
+              aes(linetype = Group)) +
+  facet_wrap(~Identification, labeller = 
+               labeller(Identification = ident_label)) +
+  scale_linetype_manual("Group", breaks = c(-.5, .5), 
+                       labels = c("Out-group", "In-group"),
+                       values = c("solid", 
+                                   "dashed")) +
+  theme_minimal() +
+  labs(title = "Projection of individualizing morals predicted by in-group identification and group membership",
+       subtitle = "Controlling for stereotyping",
+       x = "MFQ responses for self",
+       y = "MFQ responses for target")
+```
+
+```{r individual main effectgroup plot set-up, include = FALSE}
+# getting the information for the main effect of group
+is_indiv_group <- effect(term = "MFQSelf_c:inoutgroup_effects", 
+                             xlevels = list(inoutgroup_effects = c(-.5,.5)), 
+                             mod = is_mfqindividual)
+
+is_indiv_group <- as.data.frame(is_indiv_group)
+
+is_indiv_group$Group <- as.factor(is_indiv_group$inoutgroup_effects)
+```
+
+```{r binding main effect group plot BW}
+ggplot(is_indiv_group, aes(MFQSelf_c, 
+                               fit, 
+                               group = Group, 
+                               color = Group)) +
+  geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black",
+              aes(linetype = Group)) +
+  scale_linetype_manual("Group", breaks = c(-.5, .5), 
+                       labels = c("Out-group", "In-group"),
+                       values = c("solid", 
+                                  "dashed")) +
+  theme_minimal() +
+  labs(title = "Projection of individualizing morals predicted by group membership",
+       subtitle = "Controlling for stereotyping",
+       x = "MFQ responses for self",
+       y = "MFQ responses for target")
+```
 
 ## Follow-up 1
 
