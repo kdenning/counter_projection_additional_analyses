@@ -276,7 +276,10 @@ ggplot(initial_study_main_group, aes(MFQSelf_c,
        y = "MFQ responses for target")
 ```
 
+These results demonstrate that our significant three-way interaction from before is no longer significant, but the main effect of group identification still is significant and still shows counter projection. The three-way is not significant because, regardless of in-group identification, people are still counter projecting to the same extent with their out-group and projecting normally with their in-group.
+
 ## With political affiliation as moderator
+
 ```{r stereo analysis by cand}
 #model
 is_cand <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c *
@@ -289,6 +292,8 @@ tab_model(is_cand,
           title = "Projection moderated by stereotyping")
 
 ```
+
+When we include who the participant voted for with stereotyping as well, we still have the main effect from above. Now, the interaction between target group and in-group identification is significant. There is also an interaction between target group (in or out) and who the participant voted for. However, an interaction between target group, degree of in-group identification, and who they voted for is not significant. There are other significant interactions including stereotyping, but, since we only included it as a moderator to see if the relationship persisted, I didn't go through them thoroughly.
 
 ```{r is group by cand}
 levels(stereo_analysis$par_cand)
@@ -323,6 +328,78 @@ ggplot(is_group_cand, aes(MFQSelf_c,
        x = "MFQ responses for self",
        y = "MFQ responses for target")
 ```   
+
+Clinton supporters counter project and Trump supporters do not. I've checked this a lot and it seems to be correct, I must have messed up in my first year when I analyzed it...
+
+
+```{r stereo cand 3way set-up}
+describe(stereo_analysis$ident_c)
+describe(stereo_analysis$inoutgroup_effects)
+
+is_3way_cand <- effect(term = "MFQSelf_c:inoutgroup_effects:ident_c", 
+                           xlevels = list(ident_c = c(-1.78, 0, 1.78), 
+                                         inoutgroup_effects = c(-.5,.5)), 
+                           mod = is_cand)
+
+is_3way_cand <- as.data.frame(is_3way_cand)
+
+is_3way_cand$Group <- as.factor(is_3way_cand$inoutgroup_effects)
+is_3way_cand$Identification <- as.factor(is_3way_cand$ident_c)
+
+ident_label <- c("-1.78" = "Low identification \n (1 SD below)", 
+                 "0" = "Average identification",
+                 "1.78" = "High identificatiion \n(1 SD above)")
+
+```
+
+```{r three-way stereo cand}
+ggplot(is_3way_cand, aes(MFQSelf_c, 
+                             fit, 
+                             group = Group, 
+                             color = Group)) +
+  geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black", 
+              aes(linetype = Group)) +
+  facet_wrap(~Identification, labeller = 
+               labeller(Identification = ident_label)) +
+  scale_linetype_manual("Group", breaks = c(-.5, .5), 
+                       labels = c("Out-group", "In-group"),
+                       values = c("solid", 
+                                   "dashed")) +
+  theme_minimal() +
+  labs(title = "Projection predicted by in-group identification and group membership",
+       subtitle = "Controlling for stereotyping",
+       x = "MFQ responses for self",
+       y = "MFQ responses for target")
+```
+
+```{r main effect group plot set-up cand, include = FALSE}
+# getting the information for the main effect of group
+is_group_cand <- effect(term = "MFQSelf_c:inoutgroup_effects", 
+                             xlevels = list(inoutgroup_effects = c(-.5,.5)), 
+                             mod = is_cand)
+
+is_group_cand <- as.data.frame(is_group_cand)
+
+is_group_cand$Group <- as.factor(is_group_cand$inoutgroup_effects)
+```
+
+```{r main effect group plot BW cand}
+ggplot(is_group_cand, aes(MFQSelf_c, 
+                               fit, 
+                               group = Group, 
+                               color = Group)) +
+  geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black",
+              aes(linetype = Group)) +
+  scale_linetype_manual("Group", breaks = c(-.5, .5), 
+                       labels = c("Out-group", "In-group"),
+                       values = c("solid", 
+                                  "dashed")) +
+  theme_minimal() +
+  labs(title = "Projection predicted by group membership",
+       subtitle = "Controlling for stereotyping",
+       x = "MFQ responses for self",
+       y = "MFQ responses for target")
+```
 
 # MFQ sub areas
 
@@ -378,9 +455,9 @@ ident_label <- c("-1.78" = "Low identification \n (1 SD below)",
 ```
 
 ```{r 3way mfq binding plot}
-ggplot(is_binding_3way, aes(MFQSelf_c, 
+ggplot(is_binding_3way, aes(MFQSelf_c, =
                              fit, 
-                             group = Group, 
+                             group = Group,
                              color = Group)) +
   geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black", 
               aes(linetype = Group)) +
