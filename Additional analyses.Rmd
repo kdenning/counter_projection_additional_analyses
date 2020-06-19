@@ -750,8 +750,6 @@ tab_model(f1_binding,
           title = "Effects of predictors and interactions on projection of binding morals")
 ```
 
-## Plot of three-way interaction
-
 ```{r f1 binding three way,include = FALSE, echo = FALSE}
 #Creating label for in-group identification so it can be treated like a categorical variable in the plot
 describe(f1_mfq_binding$Identification_c)
@@ -880,9 +878,153 @@ ggplot(f1_binding_ident, aes(MFQSelf_c,
 
 ggpreview(width = 8, height = 6, units = "in")
 ```
-Pretty similiar to the overall model.
+
+Pretty similar to the overall model.
 
 ### Individualizing
+
+```{r f1 individualizing model}
+f1_individual <- lmer(MFQTarg ~ MFQSelf_c*Identification_c*Condition + 
+                              (MFQSelf_c|Subject), 
+                            data = f1_mfq_individual, na.action = na.omit)
+
+tab_model(f1_individual,
+          title = "Effects of predictors and interactions on projection of individualizing morals")
+```
+
+The results of this model are also not that different from the overall model: the main effects of condition and identification are still significant, as well as the interaction between condition and identification.
+
+
+```{r f1 indiv three way,include = FALSE, echo = FALSE}
+#Creating label for in-group identification so it can be treated like a categorical variable in the plot
+describe(f1_mfq_individual$Identification_c)
+Ident_label <- c("-1.19" = "Low identification \n (1 SD below)",
+                 "0" = "Average \n identification",
+                 "1.19" = "High identification \n (1 SD above)")
+
+#Getting summary stats to plot
+f1_individual_summary_3way <-summary(lsmeans(f1_individual, 
+                               ~MFQSelf_c|Identification_c|Condition, 
+                               at = list (MFQSelf_c = c(-3:3), 
+                                          Identification_c = c(-1.19, 0, 1.19))))
+```
+
+
+```{r Three-way BW model f1 individual}
+#running the plot
+
+ggpreview <- function(...) {
+  fname <- tempfile(fileext = ".png")
+  ggsave(filename = fname, ...)
+  system2("open", fname)
+  invisible(NULL)
+}
+
+knitr::opts_chunk$set(fig.width = 8, fig.height = 6) 
+
+ggplot(f1_individual_summary_3way, aes(x = MFQSelf_c, 
+                         y = lsmean, 
+                         group = as.factor(Condition))) + 
+  facet_grid(.~Identification_c,
+             labeller = labeller(Identification_c = Ident_label)) + 
+  geom_line(size = .7, aes(linetype = Condition)) +
+  xlab("MFQ responses for self") + 
+  ylab("MFQ responses for target") + 
+  scale_linetype_manual("Issue polarization", 
+                        breaks = c(1,2,3,4), 
+                        labels = c ("Political\ncandidate",
+                                   "Racial\ndisadvantage",
+                                   "Marijuana\nlegalization",
+                                   "Peanut\nbutter"),
+                        values = c("solid",
+                                   "twodash", 
+                                   "dotted", 
+                                   "dashed")) + 
+  ggtitle("Projection predicted by identification and issue polarization") +
+  theme_minimal(base_size = 13) +
+  theme(legend.text = element_text(size = 10),
+        legend.key.width = unit(1, "cm"),
+        legend.position = "bottom")
+  
+ggpreview(width = 8, height = 6, units = "in")
+```
+
+Interesting! With individualizing morals, people counter project more in the political condition when they are average identified than in the overall model and people strongly counter project in both the political and racial disadvantage conditions when highly identified. The overall model did not show counter projection in the racial disadvantage condition when people were highly identified.
+
+
+```{r f1 indiv two-way set-up,include = FALSE, echo = FALSE}
+#Get summary stats for plot
+f1_indiv_sum_cond <-summary(lsmeans(f1_individual, ~MFQSelf_c|Condition, 
+                                    at = list(MFQSelf_c = c(-3:3))))
+```
+
+```{r f1 indiv two-way BW}
+knitr::opts_chunk$set(fig.width = 8, fig.height = 6) 
+
+ggplot(f1_indiv_sum_cond, aes(x = MFQSelf_c, 
+                              y = lsmean, 
+                              group = as.factor(Condition)))+
+  geom_line(size = 1, aes(linetype = Condition)) +
+  xlab("MFQ responses for self") + 
+  ylab("MFQ responses for target") + 
+  scale_linetype_manual("Issue polarization", 
+                      breaks = c(1,2,3,4),
+                      labels = c("Political\ncandidate",
+                                  "Racial\ndisadvantage", 
+                                  "Marijuana\nlegalization",
+                                  "Peanut\nbutter"),
+                       values = c("solid",
+                                   "twodash", 
+                                   "dotted", 
+                                   "dashed")) +
+  ggtitle("Effect of issue polarization on projection with out-group targets") +
+  theme_minimal(base_size = 13) +
+  theme(legend.text = element_text(size = 10),
+        legend.key.width = unit(1.2, "cm"))
+
+
+ggpreview(width = 8, height = 6, units = "in")
+```
+
+Only difference is now there is counter projection in the political candidate condition and the racial disadvantage condition is pretty flat.
+
+```{r f1 indiv ident set-up, include = FALSE}
+#information to plot main effect of in-group identification
+describe(f1_mfq_individual$Identification_c)
+
+f1_indiv_ident <- effect(term ="MFQSelf_c:Identification_c", 
+                             xlevels = list(Identification_c = c(-1.19, 0, 1.19)), 
+                             mod = f1_individual)
+
+f1_indiv_ident  <- as.data.frame(f1_indiv_ident)
+
+f1_indiv_ident$Identification <- as.factor(f1_indiv_ident$Identification_c)
+```
+
+```{r f1 binding ident plot}
+knitr::opts_chunk$set(fig.width = 8, fig.height = 6) 
+
+ggplot(f1_indiv_ident, aes(MFQSelf_c, 
+                               fit, 
+                               group = Identification)) +
+  geom_line(aes(linetype = Identification), size = .7) +
+  scale_linetype_manual("Identification", 
+                       breaks = c(-1.19, 0, 1.19), 
+                       labels = c ("Low (1 SD below)", 
+                                  "Average ", 
+                                  "High (1 SD above)"),
+                        values = c("solid",
+                                   "twodash", 
+                                   "dotted")) +
+  theme_minimal(base_size = 13) +
+  labs(title = "Projection predicted by degree of in-group identification",
+       x = "MFQ responses for self",
+       y = "MFQ responses for target")
+
+ggpreview(width = 8, height = 6, units = "in")
+```
+
+Pretty similiar to the original.
 
 # BFI sub sreas: Follow-up 2
 
@@ -950,6 +1092,6 @@ Gender does not moderate the results.
 
 # Downstream outcomes impacted by counter projection - Initial Study
 
-# Look at how they respond for in-group to address demand? Does this mean looking at whether they are approve or disapprove of the condition in F1 and F2?
+# Look at how they respond for in-group to address demand? Does this mean looking at whether they are approve or disapprove of the condition in F1 and F2? Could do liberal leaning vs conservative leaning, minus PB and third party
 
 # Alphas for the MFQ
