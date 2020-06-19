@@ -196,7 +196,7 @@ stereo_analysis <- clean_data2 %>%
 
 ```{r stereo analysis}
 #model
-projmodel_stereo_included <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c *
+projmodel_stereo_dem <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c *
                                     inoutgroup_effects * ident_c +
                                     (MFQSelf_c|subid), 
                                  data = stereo_analysis)
@@ -689,7 +689,7 @@ ggplot(is_indiv_group_cand, aes(MFQSelf_c,
 
 # Political ideology breakdown of counter projection
 
-## Initial Study
+## Initial Study - already did this above
 
 ## Follow-up 1
 
@@ -697,9 +697,49 @@ ggplot(is_indiv_group_cand, aes(MFQSelf_c,
 
 # Demographic differences in counter projection
 
-## Initial Study - Gender
+## Initial Study - Gender & race
 
-## Initial Study - Race
+```{r stereo analysis with race}
+dem_analysis <- clean_data2 %>% 
+  select(subid, MFQ_Number, MFQSelf_c, MFQStereo_c, MFQTarg, ident_c, PT_effects, 
+         inoutgroup_effects, par_cand, Race) %>%
+  unique() %>% 
+  na.omit()
+
+#model
+projmodel_stereo_race <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c *
+                                    inoutgroup_effects * ident_c * Race +
+                                    (MFQSelf_c|subid), 
+                                 data = dem_analysis)
+
+#results
+tab_model(projmodel_stereo_race,
+          title = "Projection moderated by stereotyping and race")
+
+```
+
+Model is rank deficient, not enough power to check if results differ by race. Could possibly do white vs minorities, but that doesn't feel telling enough.
+
+```{r stereo analysis with gender}
+gender_analysis <- clean_data2 %>% 
+  select(subid, MFQ_Number, MFQSelf_c, MFQStereo_c, MFQTarg, ident_c, PT_effects, 
+         inoutgroup_effects, par_cand, Gender) %>%
+  unique() %>% 
+  na.omit()
+
+#model
+projmodel_stereo_gender <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c *
+                                    inoutgroup_effects * ident_c * Gender +
+                                    (MFQSelf_c|subid), 
+                                 data = gender_analysis)
+
+#results
+tab_model(projmodel_stereo_gender,
+          title = "Projection moderated by stereotyping and gender")
+
+```
+
+Gender does not moderate the results.
 
 ## Follow-up 1 - Gender
 
