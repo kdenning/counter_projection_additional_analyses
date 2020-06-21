@@ -31,15 +31,22 @@ library(emmeans)
 library(effects)
 library(Cairo)
 library(tinytex)
+library(rio)
 
 #making it round to three decimal places
 options(scipen = 999)
-knitr::opts_knit$set(dev.args = list(type = "cairo"))
-
-#Setting global chunk options
 knitr::opts_chunk$set(echo = TRUE,
                       message = FALSE,
                       warning = FALSE)
+
+knitr::opts_knit$set(dev.args = list(type = "cairo"))
+
+trace(grDevices:::png, quote({
+  if (missing(type) && missing(antialias)) {
+    type <- "cairo-png"
+    antialias <- "subpixel"
+  }
+}), print = FALSE)
 ```
 
 ```{r data import and cleaning initial study, include = FALSE}
@@ -228,6 +235,67 @@ contrasts(pptnpf1_comb$Condition)
 
 ```{r data import and cleaning F2, include = FALSE}
 
+# Data after manually removing participants who did not correctly complete the PT manipulation
+npf2_wide <- import("npf2_wide_ptclean2 copy.xlsx") 
+
+# Dropping second row that had full questions and overwriting because don't want that for analyses
+npf2_wide <- npf2_wide[-c(1),, drop = F] 
+
+npf2_wide[,1:30] <- sapply(npf2_wide[,1:30],as.factor)
+npf2_wide[,32:35] <- sapply(npf2_wide[,32:35],as.numeric)
+npf2_wide[,37:40] <- sapply(npf2_wide[,37:40],as.numeric)
+npf2_wide[,42:45] <- sapply(npf2_wide[,42:45],as.numeric)
+npf2_wide[,47:66] <- sapply(npf2_wide[,47:66],as.numeric)
+
+# Reverse coding
+npf2_wide_recode <- npf2_wide %>% 
+     mutate_at(c("bfi2xsh_self_quiet", "bfi2xsh_self_rude", 
+                 "bfi2xsh_self_disorg", "bfi2xsh_self_taskdiff",
+                 "bfi2xsh_self_stable", "bfi2xsh_self_abstract",
+                 "bfi2xsh_self_risk", "bfi2xsh_self_uses",
+                 "bfi2xsh_targ_quiet", "bfi2xsh_targ_rude",
+                 "bfi2xsh_targ_rude", "bfi2xsh_targ_disorg",
+                 "bfi2xsh_targ_taskdiff", "bfi2xsh_targ_stable",
+                 "bfi2xsh_targ_abstract", "bfi2xsh_targ_risk",
+                 "bfi2xsh_targ_uses"), 
+               list(~dplyr::recode(., `1`= 5, `2`= 4, `3` = 3, `4` = 2, `5` = 1)))
+
+# Cleaning and putting data in long-format
+npf2_clean <- npf2_wide_recode %>% 
+  # Dropping open-ended questions
+  select(-c(pt_narr_pol, pt_narr_race, pt_narr_thirdpart, pt_narr_weed)) %>% 
+  # Making all character variables numeric
+  mutate_if(is.character,as.numeric) %>% 
+  # Putting responses for personality items into long format for participant and target
+  pivot_longer(c(bfi2xsh_self_quiet:bfi2xsh_self_rules, 
+           bfi2xsh_targ_quiet:bfi2xsh_targ_rules),
+           names_sep = "_",
+           names_to = c("drop1", "bfi2xsh_type", "bfi2xsh_qtype")) %>% 
+  pivot_wider(names_from = bfi2xsh_type, values_from = value) %>% 
+  # Putting responses on other items (conditon, identification, liberal and conservative ratings) into long-format
+  pivot_longer(c(opin_pol:check_thirdpart),
+               names_sep = "_",
+               names_to = c("question", "condition")) %>% 
+  na.omit() %>% 
+  pivot_wider(names_from = question, values_from = value) %>% 
+  select(-drop1) %>% 
+  # Making a varriable for perceived polarization, making condition a factor variable
+  mutate(perceived_polar = abs(lib-cons),
+         condition = fct_relevel(condition, 
+                                 "pol", 
+                                 "race", 
+                                 "weed", 
+                                 "thirdpart")) %>% 
+  # Mean centering continuous predictors
+  mutate(self_c = self - mean(self, na.rm = TRUE),
+         ident_c = ident - mean(ident, na.rm = TRUE),
+         perceived_polar_c = perceived_polar - 
+           mean(perceived_polar, na.rm = TRUE)) %>% 
+# Removing opin = 5 for when including the condition variable in the analysis 
+# Removing it because only want in and out-group for this analysis, this was an error in data collection to have a third option
+  filter(opin != 5) %>% 
+  # Removing those who responded incorrectly to the manipulation check
+  filter(check != 4)
 ```
 
 # Stereotyping analysis: Initial Study
@@ -1024,7 +1092,7 @@ ggplot(f1_indiv_ident, aes(MFQSelf_c,
 ggpreview(width = 8, height = 6, units = "in")
 ```
 
-Pretty similiar to the original.
+Pretty similar to the original.
 
 # BFI sub sreas: Follow-up 2
 
@@ -1033,6 +1101,8 @@ Pretty similiar to the original.
 ## Initial Study - already did this above
 
 ## Follow-up 1
+
+Look at whether or not they agreed or disagreed with the issue
 
 ## Follow-up 2
 
