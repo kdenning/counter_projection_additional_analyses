@@ -1,0 +1,988 @@
+---
+title: "Exploratory BFI code"
+author: "Kathryn Denning"
+date: "12/12/2019"
+output: html_document
+---
+
+````{r setup data import and cleaning, echo = FALSE, warning = FALSE, message=FALSE, error=FALSE}
+# Cleaning
+## import data
+
+#install.packages("rio")
+#install.packages("here")
+#install.packages("tidyverse")
+#install.packages("magrittr")
+#install.packages("janitor")
+#install.packages("lme4")
+#install.packages("psy")
+#install.packages("irr")
+#install.packages("emmeans")
+#install.packages("sjPlot")
+#install.packages("effects")
+library(rio)
+library(here)
+library(magrittr)
+library(janitor)
+library(lme4)
+library(psy)
+library(irr)
+library(dplyr)
+library(ggeffects)
+library(sjPlot)
+library(tidyverse)
+library(psych)
+library(emmeans)
+library(effects)
+
+#Setting global chunk options
+knitr::opts_chunk$set(echo = TRUE,
+                      message = FALSE,
+                      warning = FALSE)
+
+#Data after manually removing participants who did not correctly complete the PT manipulation
+npf2_wide <- import("npf2_wide_ptclean2.xlsx") 
+
+#dropping second row that had full questions and overwriting because don't want that for analyses
+npf2_wide <- npf2_wide[-c(1),,drop=F] 
+
+#reverse coding
+npf2_wide_recode <- npf2_wide %>% 
+     mutate_at(c("bfi2xsh_self_quiet", "bfi2xsh_self_rude", 
+                 "bfi2xsh_self_disorg", "bfi2xsh_self_taskdiff",
+                 "bfi2xsh_self_stable", "bfi2xsh_self_abstract",
+                 "bfi2xsh_self_risk", "bfi2xsh_self_uses",
+                 "bfi2xsh_targ_quiet", "bfi2xsh_targ_rude",
+                 "bfi2xsh_targ_rude", "bfi2xsh_targ_disorg",
+                 "bfi2xsh_targ_taskdiff", "bfi2xsh_targ_stable",
+                 "bfi2xsh_targ_abstract", "bfi2xsh_targ_risk",
+                 "bfi2xsh_targ_uses"), 
+               list(~dplyr::recode(., `1`= 5, `2`= 4, `3` = 3, `4` = 2, `5` = 1)))
+
+
+# Cleaning and putting data in long-format
+npf2_clean <- npf2_wide_recode %>% 
+  # Dropping open-ended questions
+  select(-c(pt_narr_pol, pt_narr_race, pt_narr_thirdpart, pt_narr_weed)) %>% 
+  # Making all character variables numeric
+  mutate_if(is.character,as.numeric) %>% 
+  # Putting responses for personality items into long format for participant and target
+  pivot_longer(c(bfi2xsh_self_quiet:bfi2xsh_self_rules, 
+           bfi2xsh_targ_quiet:bfi2xsh_targ_rules),
+           names_sep = "_",
+           names_to = c("drop1", "bfi2xsh_type", "bfi2xsh_qtype")) %>% 
+  pivot_wider(names_from = bfi2xsh_type, values_from = value) %>% 
+  # Putting responses on other items (conditon, identification, liberal and conservative ratings) into long-format
+  pivot_longer(c(opin_pol:check_thirdpart),
+               names_sep = "_",
+               names_to = c("question", "condition")) %>% 
+  na.omit() %>% 
+  pivot_wider(names_from = question, values_from = value) %>% 
+  select(-drop1) %>% 
+  # Making a varriable for perceived polarization, making condition a factor variable
+  mutate(perceived_polar = abs(lib-cons),
+         condition = fct_relevel(condition, 
+                                 "pol", 
+                                 "race", 
+                                 "weed", 
+                                 "thirdpart")) %>% 
+  # Mean centering continuous predictors
+  mutate(self_c = self - mean(self, na.rm = TRUE),
+         ident_c = ident - mean(ident, na.rm = TRUE),
+         perceived_polar_c = perceived_polar - 
+           mean(perceived_polar, na.rm = TRUE)) %>% 
+# Removing opin = 5 for when including the condition variable in the analysis 
+# Removing it because only want in and out-group for this analysis, this was an error in data collection to have a third option
+  filter(opin != 5) %>% 
+  # Removing those who responded incorrectly to the manipulation check
+  filter(check != 4)
+```
+
+## EXPLORATORY CODE: BFI broken down into factors
+
+### Extraversion: quiet, dominant, energy
+
+```{r Extraversion with condition set-up, include = FALSE}
+#making the extraversion dataset
+extraversion <- npf2_wide %>% 
+  select(sub_id, ident_pol, ident_race, ident_weed, ident_thirdpart, 
+         bfi2xsh_self_quiet, bfi2xsh_self_leader, bfi2xsh_self_energy, 
+         bfi2xsh_targ_quiet, bfi2xsh_targ_leader, bfi2xsh_targ_energy, 
+         check_pol, check_race, check_weed, check_thirdpart, opin_pol, 
+         lib_pol, lib_race, lib_weed, lib_thirdpart, cons_pol, 
+         cons_race, cons_weed, cons_thirdpart) %>% 
+  gather("extra_q", "extra_score", bfi2xsh_self_quiet:bfi2xsh_targ_energy) %>% 
+  separate(.,extra_q, c("drop","type", "bfi2xsh_qcontent", "drop2"),"\\_") %>% 
+  select(-drop, -drop2) %>% 
+  spread(type, extra_score) %>% 
+  gather("condition", "ident", c(ident_pol, 
+                                 ident_race, 
+                                 ident_weed, 
+                                 ident_thirdpart)) %>% 
+  separate(.,condition,c("drop","condition"),"\\_") %>% 
+  select(-drop) %>% 
+  filter(!is.na(ident)) %>% 
+  gather("drop", "check", c(check_pol, 
+                            check_race, 
+                            check_weed, 
+                            check_thirdpart)) %>% 
+  select(-drop) %>% 
+  filter(!is.na(check)) %>% 
+  gather("drop1", "lib", c(lib_pol, 
+                           lib_race, 
+                           lib_weed, 
+                           lib_thirdpart)) %>% 
+  select(-drop1) %>% 
+  filter(!is.na(lib)) %>% 
+  gather("drop", "cons", c(cons_pol, 
+                           cons_race, 
+                           cons_weed, 
+                           cons_thirdpart)) %>% 
+  select(-drop) %>% 
+  filter(!is.na(cons)) %>% 
+  mutate(sub_id = as.numeric(sub_id),
+         bfi2xsh_qcontent = as.factor(bfi2xsh_qcontent),
+         self = as.numeric(self),
+         targ = as.numeric(targ),
+         ident = as.numeric(ident),
+         condition = as.factor(condition),
+         lib = as.numeric(lib),
+         cons = as.numeric(cons)) %>% 
+  mutate(perceived_polar = abs(lib-cons)) %>% 
+  mutate(self_c = self - mean(self, na.rm=TRUE),
+         ident_c = ident - mean(ident, na.rm=TRUE),
+         condition = fct_relevel(condition, "pol", "race", "weed", "thirdpart"),
+         perceived_polar_c = perceived_polar - mean(perceived_polar, 
+                                                    na.rm=TRUE)) %>% 
+  filter(check == 5 | opin_pol != 5) %>% 
+   select(-opin_pol) %>% 
+  na.omit()
+
+contrasts(extraversion$condition) <- "contr.helmert"
+
+```
+
+#### Results for extraversion in model with condition
+
+```{r Extraversion condition model}
+#contrasts used
+contrasts(extraversion$condition) 
+
+#model
+extra_randomslopes <- lmer(targ ~ self_c*ident_c*condition + (self_c|sub_id), 
+                           data = extraversion)
+
+#model results
+tab_model(extra_randomslopes,
+          title = "Extraversion with random slopes and helmert contrasts")
+```
+
+##### Plot of two-way interaction between self and condition
+
+```{r extraversion model plot}
+ggplot(extraversion, aes(self_c, targ)) +
+  geom_smooth(method = "lm", aes(color = condition), se = FALSE) +
+  theme_minimal()  +
+  labs(title = "Projection of extraversion predicted by condition",
+       x = "Extraversion for self",
+       y = "Extraversion for target")
+```
+
+#### Extraversion in perceived polarization model
+
+```{r extra perceived polar model}
+#model for only extraversion
+model2_extraversion <- lmer(targ ~ self_c*ident_c*perceived_polar_c + 
+                              (self_c|sub_id), data = extraversion)
+
+#results
+tab_model(model2_extraversion,
+          title = "Model 2 for extraversion only with random slopes")
+```
+
+```{r extra perceived polar plot set-up}
+#getting data for plot
+describe(extraversion$perceived_polar_c)
+describe(extraversion$ident_c)
+
+effects_model2_extra <- effect(term="self_c:ident_c:perceived_polar_c", 
+                               xlevels= list(ident_c=c(-0.96, 0, 0.96), 
+                                             perceived_polar_c = c(-2, 0, 2)), 
+                               mod=model2_extraversion)
+
+extra_data <- as.data.frame(effects_model2_extra)
+
+extra_data$Identification<-as.factor(extra_data$ident_c)
+extra_data$Polarization<-as.factor(extra_data$perceived_polar_c)
+
+polar_label <- c("-2"="Low Perceived \nPolarization (1 SD Below)", 
+                 "0" = "Average Perceived \nPolarization",
+                 "2"="High Perceived \nPolarization (1 SD Above)")
+```
+
+##### Three-way interaction from perceivd polar model
+
+```{r extra perceived polar plot}
+ggplot(extra_data, aes(self_c, 
+                       fit, 
+                       group = Identification, 
+                       color = Identification)) +
+  geom_smooth(method = "lm") +
+  facet_wrap(~Polarization, labeller = 
+               labeller(Polarization=polar_label)) +
+  scale_color_discrete("Identification", breaks = c(-0.96, 0, 0.96), 
+                       labels =c ("Low (1 SD Below)", 
+                                  "Average", 
+                                  "High (1 SD Above")) +
+  theme_minimal() +
+  labs(title = "Projection for extraversion predicted by degree of in-group identification",
+       x = "Personaility ratings for self",
+       y = "Personality ratings for target")
+
+```
+
+### Agreeableness: Compassionate, rude, best
+
+```{r Agreeable set-up, include = FALSE}
+#data for agreeableness
+agree <- npf2_wide %>% 
+  select(sub_id, ident_pol, ident_race, ident_weed, ident_thirdpart, 
+         bfi2xsh_self_rude, bfi2xsh_self_heart, bfi2xsh_self_best, 
+         bfi2xsh_targ_rude, bfi2xsh_targ_heart, bfi2xsh_targ_best, 
+         check_pol, check_race, check_weed, check_thirdpart, opin_pol, 
+         lib_pol, lib_race, lib_weed, lib_thirdpart, cons_pol, 
+         cons_race, cons_weed, cons_thirdpart) %>% 
+  gather("extra_q", "extra_score", bfi2xsh_self_rude:bfi2xsh_targ_best) %>% 
+  separate(.,extra_q,c("drop","type", "bfi2xsh_qcontent", "drop2"),"\\_") %>% 
+  select(-drop, -drop2) %>% 
+  spread(type, extra_score) %>% 
+  gather("condition", "ident", c(ident_pol, 
+                                 ident_race, 
+                                 ident_weed, 
+                                 ident_thirdpart)) %>% 
+  separate(.,condition,c("drop","condition"),"\\_") %>% 
+  select(-drop) %>% 
+  filter(!is.na(ident)) %>% 
+  gather("drop", "check", c(check_pol, 
+                            check_race, 
+                            check_weed, 
+                            check_thirdpart)) %>% 
+  select(-drop) %>% 
+  filter(!is.na(check)) %>% 
+  gather("drop1", "lib", c(lib_pol, 
+                           lib_race, 
+                           lib_weed, 
+                           lib_thirdpart)) %>% 
+  select(-drop1) %>% 
+  filter(!is.na(lib)) %>% 
+  gather("drop", "cons", c(cons_pol, 
+                           cons_race, 
+                           cons_weed, 
+                           cons_thirdpart)) %>% 
+  select(-drop) %>% 
+  filter(!is.na(cons)) %>% 
+  mutate(sub_id = as.numeric(sub_id),
+         bfi2xsh_qcontent = as.factor(bfi2xsh_qcontent),
+         self = as.numeric(self),
+         targ = as.numeric(targ),
+         ident = as.numeric(ident),
+         condition = as.factor(condition),
+         lib = as.numeric(lib),
+         cons = as.numeric(cons)) %>% 
+  mutate(perceived_polar = abs(lib-cons)) %>% 
+  mutate(self_c = self - mean(self, na.rm=TRUE),
+         ident_c = ident - mean(ident, na.rm=TRUE),
+         condition = fct_relevel(condition, "pol", "race", "weed", "thirdpart"),
+         perceived_polar_c = perceived_polar - mean(perceived_polar, 
+                                                    na.rm=TRUE)) %>% 
+  filter(check == 5 | opin_pol != 5) %>% 
+   select(-opin_pol) %>% 
+  na.omit()
+  
+contrasts(agree$condition) <- "contr.helmert"
+```
+
+#### Results for agreeableness in model with condition
+
+```{r Agreeable model}
+#contrasts used
+contrasts(agree$condition) 
+
+#model
+agree_randomslopes<- lmer(targ ~ self_c*ident_c*condition + (self_c|sub_id), 
+                          data = agree)
+
+#results
+tab_model(agree_randomslopes,
+          title = "Agreeableness with random slopes and helmert contrasts")
+```
+
+##### Plot of self interacting with condition
+
+```{r agreeable plot 1}
+#getting the information for the plot of self interacting with condition
+effects_agree_main <- effect(term="self_c:condition", xlevels= list(condition=c("pol","race","thirdpart","weed")), mod=agree_randomslopes)
+
+effects_agree_main_data <- as.data.frame(effects_agree_main)
+
+#plot of self interacting with condition
+ggplot(effects_agree_main_data, aes(self_c, fit)) +
+  geom_smooth(method = "lm", aes(color = condition)) +
+  geom_ribbon(aes(ymin=fit-se, ymax=fit+se, fill = condition), alpha = .2) +
+  theme_minimal() +
+  labs(title = "Projection of agreeableness predicted by condition",
+       subtitle = "Contrast between politics and weed is significant",
+       x = "Agreeableness for self",
+       y = "Agreeableness ratings for target")
+```
+
+##### Plot of three-way interaction
+
+```{r agreeable plot 2}
+#getting information for three-way plot
+describe(agree$ident_c)
+
+effects_agree <- effect(term="self_c:ident_c:condition", 
+                        xlevels= list(ident_c=c(-0.97, 0, 0.97), 
+                                      condition=c("pol",
+                                                  "race",
+                                                  "thirdpart",
+                                                  "weed")), 
+                        mod=agree_randomslopes)
+
+effects_agree_data <- as.data.frame(effects_agree)
+
+effects_agree_data$Identification<-as.factor(effects_agree_data$ident_c)
+
+agree_ident_label <- c("-0.97"="Low Identification \n(1 SD Below)", 
+                       "0" = "Average \nIdentification",
+                       "0.97"="High Identification \n(1 SD Above)")
+
+#three-way interaction
+ggplot(effects_agree_data, aes(self_c, fit)) +
+  geom_ribbon(aes(ymin=fit-se, ymax=fit+se, fill = condition), alpha = .3) +
+  facet_wrap(~Identification, 
+             labeller = labeller(Identification=agree_ident_label)) +
+  geom_smooth(method = "lm", aes(color = condition)) +
+  theme_minimal() +
+  labs(title = "Projection of agreeableness predicted by \nin-group identification and condition",
+       x = "Personaility ratings for self",
+       y = "Personality ratings for target")
+
+```
+
+#### Model for agreeableness in model with perceived polarization
+
+```{r agreeable perceived polar model}
+#model
+model2_agree<- lmer(targ ~ self_c*ident_c*perceived_polar_c + (self_c|sub_id), 
+                    data = agree)
+#results
+tab_model(model2_agree,
+          title = "Model 2 for agreeableness only with random slopes")
+```
+
+```{r agreeable perceived polar plot set-up}
+#getting data for the plot
+describe(agree$perceived_polar_c)
+describe(agree$ident_c)
+
+effects_model2_agree <- effect(term="self_c:ident_c:perceived_polar_c", 
+                               xlevels= list(ident_c=c(-0.96, 0, 0.96), 
+                                             perceived_polar_c = c(-2, 0, 2)), 
+                               mod=model2_agree)
+
+effects_agree <- as.data.frame(effects_model2_agree)
+
+effects_agree$Identification<-as.factor(effects_agree$ident_c)
+effects_agree$Polarization<-as.factor(effects_agree$perceived_polar_c)
+
+polar_label <- c("-2"="Low Perceived \nPolarization (1 SD Below)", 
+                 "0" = "Average Perceived \nPolarization",
+                 "2"="High Perceived \nPolarization (1 SD Above)")
+```
+
+##### Plot for three-way interaction
+
+```{r agreeable perceived polar plot}
+ggplot(effects_agree, aes(self_c, 
+                          fit, 
+                          group = Identification, 
+                          color = Identification)) +
+  geom_smooth(method = "lm") +
+  facet_wrap(~Polarization, labeller = 
+               labeller(Polarization=polar_label)) +
+  scale_color_discrete("Identification", breaks = c(-0.96, 0, 0.96), 
+                       labels =c ("Low (1 SD Below)", "Average", 
+                                  "High (1 SD Above")) +
+  theme_minimal() +
+  labs(title = "Projection for agreeableness predicted by degree of in-group identification",
+       x = "Personaility ratings for self",
+       y = "Personality ratings for target")
+```
+
+### Conscientiousness: disorganized, taskdiff, reliable
+
+```{r consc set-up, include = FALSE}
+#getting the data for conscientiousness
+consc <- npf2_wide %>% 
+  select(sub_id, ident_pol, ident_race, ident_weed, ident_thirdpart, 
+         bfi2xsh_self_disorg, bfi2xsh_self_taskdiff, bfi2xsh_self_count, 
+         bfi2xsh_targ_disorg, bfi2xsh_targ_taskdiff, bfi2xsh_targ_count, 
+         check_pol, check_race, check_weed, check_thirdpart, opin_pol, lib_pol, 
+         lib_race, lib_weed, lib_thirdpart, cons_pol, cons_race, 
+         cons_weed, cons_thirdpart) %>% 
+  gather("cons_q", "cons_score", bfi2xsh_self_disorg:bfi2xsh_targ_count) %>% 
+  separate(.,cons_q,c("drop","type", "bfi2xsh_qcontent", "drop2"),"\\_") %>% 
+  select(-drop, -drop2) %>% 
+  spread(type, cons_score) %>% 
+  gather("condition", "ident", c(ident_pol, 
+                                 ident_race, 
+                                 ident_weed, 
+                                 ident_thirdpart)) %>% 
+  separate(.,condition,c("drop","condition"),"\\_") %>% 
+  select(-drop) %>% 
+  filter(!is.na(ident)) %>% 
+  gather("drop", "check", c(check_pol, 
+                            check_race, 
+                            check_weed, 
+                            check_thirdpart)) %>% 
+  select(-drop) %>% 
+  filter(!is.na(check)) %>% 
+  gather("drop1", "lib", c(lib_pol, 
+                           lib_race, 
+                           lib_weed, 
+                           lib_thirdpart)) %>% 
+  select(-drop1) %>% 
+  filter(!is.na(lib)) %>% 
+  gather("drop", "cons", c(cons_pol, 
+                           cons_race, 
+                           cons_weed, 
+                           cons_thirdpart)) %>% 
+  select(-drop) %>% 
+  filter(!is.na(cons)) %>% 
+  mutate(sub_id = as.numeric(sub_id),
+         bfi2xsh_qcontent = as.factor(bfi2xsh_qcontent),
+         self = as.numeric(self),
+         targ = as.numeric(targ),
+         ident = as.numeric(ident),
+         condition = as.factor(condition),
+         lib = as.numeric(lib),
+         cons = as.numeric(cons)) %>% 
+  mutate(perceived_polar = abs(lib-cons)) %>% 
+  mutate(self_c = self - mean(self, na.rm=TRUE),
+         ident_c = ident - mean(ident, na.rm=TRUE),
+         condition = fct_relevel(condition, "pol", "race", "weed", "thirdpart"),
+         perceived_polar_c = perceived_polar - mean(perceived_polar, 
+                                                    na.rm=TRUE)) %>% 
+  filter(check == 5 | opin_pol != 5) %>% 
+   select(-opin_pol) %>% 
+  na.omit()
+
+contrasts(consc$condition) <- "contr.helmert"
+```
+
+#### Results for conscientiousness and condition model
+
+```{r consc model}
+#contrasts used
+contrasts(consc$condition) 
+
+#model run
+consc_randomslopes <- lmer(targ ~ self_c*ident_c*condition + (self_c|sub_id), data = consc)
+
+#results
+tab_model(consc_randomslopes ,
+          title = "Conscientiousness with random slopes and helmert contrasts")
+```
+
+#### Plot of projection by condition for conscientiousness
+
+```{r cons plot by cond}
+#getting the information for the plot of self interacting with condition
+effects_cons_main <- effect(term="self_c:condition", xlevels= list(condition=c("pol","race","thirdpart","weed")), mod=consc_randomslopes)
+
+effects_cons_main_data <- as.data.frame(effects_cons_main)
+
+#plot of self interacting with condition
+ggplot(effects_cons_main_data, aes(self_c, fit)) +
+  geom_smooth(method = "lm", aes(color = condition)) +
+  geom_ribbon(aes(ymin=fit-se, ymax=fit+se, fill = condition), alpha = .2) +
+  theme_minimal() +
+  labs(title = "Projection of conscientiousness predicted by condition",
+       subtitle = "Contrast between politics and weed is significant",
+       x = "Conscientiousness for self",
+       y = "Conscientiousness for target")
+```
+
+
+#### Results for conscientiousness and perceived polarization model
+
+```{r consc perceived pol model}
+#model
+model2_consc<- lmer(targ ~ self_c*ident_c*perceived_polar_c + (self_c|sub_id), 
+                    data = consc)
+
+#results
+tab_model(model2_consc,
+          title = "Model 2 for conscientiousness only with random slopes")
+```
+
+```{r consc perceived pol plot set-up}
+# getting the data for the plot
+describe(consc$perceived_polar_c)
+describe(consc$ident_c)
+
+effects_model2_consc <- effect(term="self_c:ident_c:perceived_polar_c", 
+                               xlevels= list(ident_c=c(-0.96, 0, 0.96), 
+                                             perceived_polar_c = c(-2, 0, 2)), 
+                               mod=model2_consc)
+
+effects_consc <- as.data.frame(effects_model2_consc)
+
+effects_consc$Identification<-as.factor(effects_consc$ident_c)
+effects_consc$Polarization<-as.factor(effects_consc$perceived_polar_c)
+
+polar_label <- c("-2"="Low Perceived \nPolarization (1 SD Below)", 
+                 "0" = "Average Perceived \nPolarization",
+                 "2"="High Perceived \nPolarization (1 SD Above)")
+```
+
+##### Three-way plot
+
+```{r plot of three-way perceived pol consc}
+#three-way plot to look at directionality even though not significant for overall understnding of how the effects change at the factor level of BFI
+ggplot(effects_consc, aes(self_c, 
+                          fit, 
+                          group = Identification, 
+                          color = Identification)) +
+  geom_smooth(method = "lm") +
+  facet_wrap(~Polarization, labeller = 
+               labeller(Polarization=polar_label)) +
+  scale_color_discrete("Identification", breaks = c(-0.96, 0, 0.96), 
+                       labels =c ("Low (1 SD Below)", 
+                                  "Average", 
+                                  "High (1 SD Above")) +
+  theme_minimal() +
+  labs(title = "Projection for conscientiousness predicted by degree of in-group identification",
+       x = "Personaility ratings for self",
+       y = "Personality ratings for target")
+```
+
+### Negative Emotion: Worry, Depressed, Stable
+
+```{r neg emo set-up, include = FALSE}
+#getting data for negative emotion
+negemo <- npf2_wide %>% 
+  select(sub_id, ident_pol, ident_race, ident_weed, ident_thirdpart, 
+         bfi2xsh_self_worry, bfi2xsh_self_depress, bfi2xsh_self_stable, 
+         bfi2xsh_targ_worry, bfi2xsh_targ_depress, bfi2xsh_targ_stable, 
+         check_pol, check_race, check_weed, check_thirdpart, opin_pol, 
+         lib_pol, lib_race, lib_weed, lib_thirdpart, cons_pol, cons_race, 
+         cons_weed, cons_thirdpart) %>% 
+  gather("negemo_q", "negemo_score", 
+         bfi2xsh_self_worry:bfi2xsh_targ_stable) %>% 
+  separate(.,negemo_q,c("drop","type", "bfi2xsh_qcontent", "drop2"),"\\_") %>% 
+  select(-drop, -drop2) %>% 
+  spread(type, negemo_score) %>% 
+  gather("condition", "ident", c(ident_pol, 
+                                 ident_race, 
+                                 ident_weed, 
+                                 ident_thirdpart)) %>% 
+  separate(.,condition,c("drop","condition"),"\\_") %>% 
+  select(-drop) %>% 
+  filter(!is.na(ident)) %>% 
+  gather("drop", "check", c(check_pol, 
+                            check_race, 
+                            check_weed, 
+                            check_thirdpart)) %>% 
+  select(-drop) %>% 
+  filter(!is.na(check)) %>% 
+  gather("drop1", "lib", c(lib_pol, 
+                           lib_race, 
+                           lib_weed, 
+                           lib_thirdpart)) %>% 
+  select(-drop1) %>% 
+  filter(!is.na(lib)) %>% 
+  gather("drop", "cons", c(cons_pol, 
+                           cons_race, 
+                           cons_weed, 
+                           cons_thirdpart)) %>% 
+  select(-drop) %>% 
+  filter(!is.na(cons)) %>% 
+  mutate(sub_id = as.numeric(sub_id),
+         bfi2xsh_qcontent = as.factor(bfi2xsh_qcontent),
+         self = as.numeric(self),
+         targ = as.numeric(targ),
+         ident = as.numeric(ident),
+         condition = as.factor(condition),
+         lib = as.numeric(lib),
+         cons = as.numeric(cons)) %>% 
+  mutate(perceived_polar = abs(lib-cons)) %>% 
+  mutate(self_c = self - mean(self, na.rm=TRUE),
+         ident_c = ident - mean(ident, na.rm=TRUE),
+         condition = fct_relevel(condition, "pol", "race", "weed", "thirdpart"),
+         perceived_polar_c = perceived_polar - mean(perceived_polar, 
+                                                    na.rm=TRUE)) %>% 
+  filter(check == 5 | opin_pol != 5) %>% 
+   select(-opin_pol) %>% 
+  na.omit()
+  
+contrasts(negemo$condition) <- "contr.helmert"
+```
+
+#### Results for model including condition
+
+```{r neg emo model}
+#contrasts used
+contrasts(negemo$condition) 
+
+#model
+negemo_randomslopes <- lmer(targ ~ self_c*ident_c*condition + (self_c|sub_id), data = negemo)
+
+#results
+tab_model(negemo_randomslopes,
+          title = "Negative emotionality with random slopes and helmert contrasts")
+```
+#### Plot of projection by condition for negative emotion
+
+```{r negemo plot by cond}
+#getting the information for the plot of self interacting with condition
+effects_main_negemo <- effect(term="self_c:condition", xlevels= list(condition=c("pol","race","thirdpart","weed")), mod=negemo_randomslopes)
+
+effects_negemo_main_data <- as.data.frame(effects_main_negemo)
+
+#plot of self interacting with condition
+ggplot(effects_negemo_main_data, aes(self_c, fit)) +
+  geom_smooth(method = "lm", aes(color = condition)) +
+  geom_ribbon(aes(ymin=fit-se, ymax=fit+se, fill = condition), alpha = .2) +
+  theme_minimal() +
+  labs(title = "Projection of negative emotion predicted by condition",
+       subtitle = "Contrast between politics and race is significant",
+       x = "Negative emotion for self",
+       y = "Negative emotion for target")
+```
+
+#### Results for model including perceived polarization
+
+```{r neg emo perceived polar model}
+#model
+model2_negemo <- lmer(targ ~ self_c*ident_c*perceived_polar_c + (self_c|sub_id), 
+                      data = negemo)
+
+#results
+tab_model(model2_negemo,
+          title = "Model 2 for negative emotion only with random slopes")
+```
+
+```{r neg emo perceived polar plot set-up}
+#getting data for plot
+describe(negemo$perceived_polar_c)
+describe(negemo$ident_c)
+
+effects_model2_negemo <- effect(term="self_c:ident_c:perceived_polar_c", 
+                                xlevels = list(ident_c = c(-0.96, 0, 0.96), 
+                                              perceived_polar_c = c(-2, 0, 2)), 
+                                mod = model2_negemo)
+
+effects_negemo <- as.data.frame(effects_model2_negemo)
+
+effects_negemo$Identification <- as.factor(effects_negemo$ident_c)
+effects_negemo$Polarization <- as.factor(effects_negemo$perceived_polar_c)
+
+polar_label <- c("-2"="Low Perceived \nPolarization (1 SD Below)", 
+                 "0" = "Average Perceived \nPolarization",
+                 "2"="High Perceived \nPolarization (1 SD Above)")
+```
+
+##### Three-way plot
+
+```{r neg emo perceived polar three way plot}
+#three-way plot
+ggplot(effects_negemo, aes(self_c, 
+                           fit, 
+                           group = Identification, 
+                           color = Identification)) +
+  geom_smooth(method = "lm") +
+  facet_wrap(~Polarization, labeller = 
+               labeller(Polarization = polar_label)) +
+  scale_color_discrete("Identification", breaks = c(-0.96, 0, 0.96), 
+                       labels = c ("Low (1 SD Below)", "Average", 
+                                  "High (1 SD Above")) +
+  theme_minimal() +
+  labs(title = "Projection for negative emotion predicted by degree of in-group identification",
+       x = "Personaility ratings for self",
+       y = "Personality ratings for target")
+```
+
+### Open-minded: Art, abstract, original
+
+```{r open set-up, include = FALSE}
+#cleaning data
+open <- npf2_wide %>% 
+  select(sub_id, ident_pol, ident_race, ident_weed, ident_thirdpart, 
+         bfi2xsh_self_art, bfi2xsh_self_original, bfi2xsh_self_abstract, 
+         bfi2xsh_targ_art, bfi2xsh_targ_original, bfi2xsh_targ_abstract, 
+         check_pol, check_race, check_weed, check_thirdpart, opin_pol, 
+         lib_pol, lib_race, lib_weed, lib_thirdpart, cons_pol, cons_race, 
+         cons_weed, cons_thirdpart) %>% 
+  gather("open_q", "open_score", bfi2xsh_self_art:bfi2xsh_targ_abstract) %>% 
+  separate(.,open_q,c("drop","type", "bfi2xsh_qcontent", "drop2"),"\\_") %>% 
+  select(-drop, -drop2) %>% 
+  spread(type, open_score) %>% 
+  gather("condition", "ident", c(ident_pol, 
+                                 ident_race, 
+                                 ident_weed, 
+                                 ident_thirdpart)) %>% 
+  separate(.,condition,c("drop","condition"),"\\_") %>% 
+  select(-drop) %>% 
+  filter(!is.na(ident)) %>% 
+  gather("drop", "check", c(check_pol, 
+                            check_race, 
+                            check_weed, 
+                            check_thirdpart)) %>% 
+  select(-drop) %>% 
+  filter(!is.na(check)) %>% 
+  gather("drop1", "lib", c(lib_pol, 
+                           lib_race, 
+                           lib_weed, 
+                           lib_thirdpart)) %>% 
+  select(-drop1) %>% 
+  filter(!is.na(lib)) %>% 
+  gather("drop", "cons", c(cons_pol, 
+                           cons_race, 
+                           cons_weed, 
+                           cons_thirdpart)) %>% 
+  select(-drop) %>% 
+  filter(!is.na(cons)) %>% 
+  mutate(sub_id = as.numeric(sub_id),
+         bfi2xsh_qcontent = as.factor(bfi2xsh_qcontent),
+         self = as.numeric(self),
+         targ = as.numeric(targ),
+         ident = as.numeric(ident),
+         condition = as.factor(condition),
+         lib = as.numeric(lib),
+         cons = as.numeric(cons)) %>% 
+  mutate(perceived_polar = abs(lib-cons)) %>% 
+  mutate(self_c = self - mean(self, na.rm=TRUE),
+         ident_c = ident - mean(ident, na.rm=TRUE),
+         condition = fct_relevel(condition, "pol", "race", "weed", "thirdpart"),
+         perceived_polar_c = perceived_polar - mean(perceived_polar, 
+                                                    na.rm=TRUE)) %>% 
+  filter(check == 5 | opin_pol != 5) %>% 
+   select(-opin_pol) %>% 
+  na.omit()
+
+open <- as.data.frame(open)
+  
+contrasts(open$condition) <- "contr.helmert"
+```
+
+#### Model including condition
+
+```{r open model}
+#contrasts used
+contrasts(open$condition) 
+
+#model
+open_randomslopes <- lmer(targ ~ self_c*ident_c*condition + (self_c|sub_id), 
+                          data = open)
+
+#results
+tab_model(open_randomslopes,
+          title = "Open mindedness with random slopes and helmert contrasts")
+
+```
+#### Plot of projection by condition for openness
+
+```{r opennes plot by cond}
+#getting the information for the plot of self interacting with condition
+open_plot_cond <- ggeffects::ggpredict(open_randomslopes, terms = c("self_c", "ident_c", "condition"))
+
+
+#Will make pretty in ggplot if we decide to use this
+plot(open_plot_cond)
+```
+
+##### Model including perceived polarization
+
+```{r open model perceived pol}
+#model
+model2_open <- lmer(targ ~ self_c*ident_c*perceived_polar_c + (self_c|sub_id), 
+                    data = open)
+
+model2_open
+model2_open_sum <- summary(model2_open)
+#results
+tab_model(model2_open,
+          title = "Model 2 for openess only with random slopes")
+```
+```{r}
+open_plot_3way <- ggeffects::ggpredict(model2_open, terms = c("self_c", "ident_c", "perceived_polar_c"))
+
+
+perceived_label <- c("-2.05164319248826"="Perceived pol at -2.05", 
+                 "-1.05164319248826" = "Perceived pol at -1.05",
+                 "-0.051643192488263"="Perceived pol at -.05",
+                 "0.948356807511737" = "Perceived pol at 0.95",
+                 "1.94835680751174" = "Perceived pol at 1.95")
+
+library(ggplot2)
+ggplot(open_plot_3way, aes(x = x, y = predicted, color = group)) +
+  geom_smooth(method = "lm") +
+  facet_wrap(~facet, labeller = labeller(facet = perceived_label)) +
+  theme_minimal() +
+  scale_color_discrete("", breaks = c(-0.96, 0, 0.96), 
+                       labels =c ("Low (1 SD Below)", "Average", 
+                                  "High (1 SD Above")) 
+#Will make pretty in ggplot if we decide to use this
+plot(open_plot_3way)
+```         
+
+
+### Honesty
+
+```{r honesty set-up, include = FALSE}
+honest <- npf2_wide %>% 
+  select(sub_id, ident_pol, ident_race, ident_weed, ident_thirdpart, 
+         bfi2xsh_self_rules, bfi2xsh_self_nodeceive, bfi2xsh_self_uses, 
+         bfi2xsh_self_risk, bfi2xsh_targ_rules, bfi2xsh_targ_nodeceive, 
+         bfi2xsh_targ_uses, bfi2xsh_targ_risk, check_pol, check_race, 
+         check_weed, check_thirdpart, opin_pol, lib_pol, lib_race, lib_weed, 
+         lib_thirdpart, cons_pol, cons_race, cons_weed, cons_thirdpart) %>% 
+  gather("honest_q", "honest_score", 
+         bfi2xsh_self_rules:bfi2xsh_targ_risk) %>% 
+  separate(.,honest_q,c("drop","type", "bfi2xsh_qcontent", "drop2"),"\\_") %>% 
+  select(-drop, -drop2) %>% 
+  spread(type, honest_score) %>% 
+  gather("condition", "ident", c(ident_pol, 
+                                 ident_race, 
+                                 ident_weed, 
+                                 ident_thirdpart)) %>% 
+  separate(.,condition,c("drop","condition"),"\\_") %>% 
+  select(-drop) %>% 
+  filter(!is.na(ident)) %>% 
+  gather("drop", "check", c(check_pol, 
+                            check_race, 
+                            check_weed, 
+                            check_thirdpart)) %>% 
+  select(-drop) %>% 
+  filter(!is.na(check)) %>% 
+  gather("drop1", "lib", c(lib_pol, 
+                           lib_race, 
+                           lib_weed, 
+                           lib_thirdpart)) %>% 
+  select(-drop1) %>% 
+  filter(!is.na(lib)) %>% 
+  gather("drop", "cons", c(cons_pol, 
+                           cons_race, 
+                           cons_weed, 
+                           cons_thirdpart)) %>% 
+  select(-drop) %>% 
+  filter(!is.na(cons)) %>% 
+  mutate(sub_id = as.numeric(sub_id),
+         bfi2xsh_qcontent = as.factor(bfi2xsh_qcontent),
+         self = as.numeric(self),
+         targ = as.numeric(targ),
+         ident = as.numeric(ident),
+         condition = as.factor(condition),
+         lib = as.numeric(lib),
+         cons = as.numeric(cons)) %>% 
+  mutate(perceived_polar = abs(lib-cons)) %>% 
+  mutate(self_c = self - mean(self, na.rm=TRUE),
+         ident_c = ident - mean(ident, na.rm=TRUE),
+         condition = fct_relevel(condition, "pol", "race", "weed", "thirdpart"),
+         perceived_polar_c = perceived_polar - mean(perceived_polar, 
+                                                    na.rm=TRUE)) %>% 
+  filter(check == 5 | opin_pol != 5) %>% 
+   select(-opin_pol) %>% 
+  na.omit()
+  
+contrasts(honest$condition) <- "contr.helmert"
+```
+
+#### Honesty model with condition
+
+```{r honesty model condition}
+#contrasts used
+contrasts(honest$condition) 
+
+#model
+honest_randomslopes <- lmer(targ ~ self_c*ident_c*condition + (self_c|sub_id), 
+                            data = honest)
+
+#results
+tab_model(honest_randomslopes,
+          title = "Open mindedness with random slopes and helmert codes")
+```
+
+#### Plot of projection by condition for honesty
+
+```{r honesty plot by cond}
+#getting the information for the plot of self interacting with condition
+effects_main_honest <- effect(term="self_c:condition", xlevels= list(condition=c("pol","race","thirdpart","weed")), mod=honest_randomslopes)
+
+effects_honest_main_data <- as.data.frame(effects_main_honest)
+
+#plot of self interacting with condition
+ggplot(effects_honest_main_data, aes(self_c, fit)) +
+  geom_smooth(method = "lm", aes(color = condition)) +
+  geom_ribbon(aes(ymin=fit-se, ymax=fit+se, fill = condition), alpha = .2) +
+  theme_minimal() +
+  labs(title = "Projection of honesty predicted by condition",
+       x = "Honesty for self",
+       y = "Honesty for target")
+```
+
+#### Honesty model with perceived polarization
+
+```{r honesty model perceived pol}
+#model
+model2_honest <- lmer(targ ~ self_c*ident_c*perceived_polar_c + (self_c|sub_id), 
+                      data = honest)
+
+#results
+tab_model(model2_honest,
+          title = "Model 2 for openess only with honest slopes")
+```
+
+```{r honesty plot set-up perceived pol}
+#getting data for plot
+psych::describe(honest$perceived_polar_c)
+psych::describe(honest$ident_c)
+
+effects_model2_honest <- effects::effect(term="self_c:ident_c:perceived_polar_c", 
+                                xlevels= list(ident_c=c(-0.96, 0, 0.96), 
+                                              perceived_polar_c = c(-2, 0, 2)), 
+                                mod=model2_honest)
+
+effects_honest <- as.data.frame(effects_model2_honest)
+
+effects_honest$Identification<-as.factor(effects_honest$ident_c)
+effects_honest$Polarization<-as.factor(effects_honest$perceived_polar_c)
+
+polar_label <- c("-2"="Low Perceived \nPolarization (1 SD Below)", 
+                 "0" = "Average Perceived \nPolarization",
+                 "2"="High Perceived \nPolarization (1 SD Above)")
+```
+
+##### Three-way plot
+
+```{r honesty perceived pol three way plot}
+#three-way plot to look at directionality even though not significant for overall understnding of how the effects change at the factor level of BFI
+ggplot2::ggplot(effects_honest, aes(self_c, 
+                           fit, 
+                           group = Identification, 
+                           color = Identification)) +
+  geom_smooth(method = "lm") +
+  facet_wrap(~Polarization, labeller = 
+               labeller(Polarization=polar_label)) +
+  scale_color_discrete("Identification", breaks = c(-0.96, 0, 0.96), 
+                       labels =c ("Low (1 SD Below)", 
+                                  "Average", 
+                                  "High (1 SD Above")) +
+  theme_minimal() +
+  labs(title = "Projection for honesty predicted by degree of in-group identification",
+       x = "Personaility ratings for self",
+       y = "Personality ratings for target")
+```
