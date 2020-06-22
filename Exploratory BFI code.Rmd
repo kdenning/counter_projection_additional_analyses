@@ -5,6 +5,8 @@ date: "12/12/2019"
 output: html_document
 ---
 
+**Many models do not converge or were singular. Although I plotted them to see what they were showing me, these plots used the intercepts and slopes from the models that did not converge, making the information they provide unreliable.**
+
 ````{r setup data import and cleaning, echo = FALSE, warning = FALSE, message=FALSE, error=FALSE}
 # Cleaning
 ## import data

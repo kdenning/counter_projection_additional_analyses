@@ -909,6 +909,7 @@ ggplot(f1_binding_sum_cond, aes(x = MFQSelf_c,
 
 ggpreview(width = 8, height = 6, units = "in")
 ```
+
 Only difference is now there is counter projection in the political candidate condition.
 
 ```{r f1 binding ident set-up, include = FALSE}
@@ -1096,15 +1097,133 @@ Pretty similar to the original.
 
 # BFI sub sreas: Follow-up 2
 
+Did this previously in another document, which I have uploaded to this project.
+
 # Political ideology breakdown of counter projection
 
-## Initial Study - already did this above
+## Initial Study - already did this above with who they voted for
 
 ## Follow-up 1
 
-Look at whether or not they agreed or disagreed with the issue
+Look at whether or not they agreed or disagreed with the issue AND if the issue is generally liberal or conservative.
+
+Condition: What issue participants were given; 1 = political candidate, 2 = racial discrimination, 3 = weed, 4 = PB
+
+Issue_agreement: 1 for condition 1 is Clinton, 2 is Trump, for other three conditions 1 is yes to agreeing with issue, 4 is no to agreeing with issue (AKA ignoring PB, 1 = liberal, 4 = conservative beliefs)
+
+```{r f1 ideology}
+f1_ideology_model <- lmer(MFQTarg ~ MFQSelf_c*Identification_c*Condition*Issue_agreement + 
+                              (MFQSelf_c|Subject), 
+                            data = pptnpf1_comb, na.action = na.omit)
+
+tab_model(f1_ideology_model,
+          title = "Projection predicted by ideology")
+```
+
+```{r f1 issue agree plot 1}
+describe(pptnpf1_comb$Identification_c)
+
+effects_polident_f1 <- effect(term="MFQSelf_c:Identification_c:Condition", 
+                        xlevels= list(Identification_c=c(-1.19, 0, 1.19), 
+                                      Condition=c("1",
+                                                  "2",
+                                                  "3",
+                                                  "4")), 
+                        mod=f1_ideology_model)
+
+effects_polident_f1 <- as.data.frame(effects_polident_f1)
+
+effects_polident_f1$Identification<-as.factor(effects_polident_f1$Identification_c)
+
+f1_polident_ident_label <- c("-1.19"="Low Identification \n(1 SD Below)", 
+                       "0" = "Average \nIdentification",
+                       "1.19"="High Identification \n(1 SD Above)")
+
+#three-way interaction
+ggplot(effects_polident_f1, aes(MFQSelf_c, fit)) +
+  #geom_ribbon(aes(ymin=fit-se, ymax=fit+se, fill = Condition), alpha = .3) +
+  geom_line(size = 1, aes(linetype = Condition)) +
+  facet_wrap(~Identification, 
+             labeller = labeller(Identification=f1_polident_ident_label)) +
+  scale_linetype_manual("Issue polarization", 
+                        breaks = c(1,2,3,4), 
+                        labels = c ("Political\ncandidate",
+                                   "Racial\ndisadvantage",
+                                   "Marijuana\nlegalization",
+                                   "Peanut\nbutter"),
+                        values = c("solid",
+                                   "twodash", 
+                                   "dotted", 
+                                   "dashed")) +
+    theme_minimal(base_size = 13) +
+  theme(legend.text = element_text(size = 10),
+        legend.key.width = unit(1.2, "cm")) +
+  labs(title = "Projection predicted by in-group identification and condition",
+       subtitle = "Included issue agreement in this model",
+       x = "MFQ ratings for self",
+       y = "MFQ ratings for target")
+```
+
+```{r f1 issue agree plot 2}
+describe(pptnpf1_comb$Issue_agreement)
+
+effects_polident_f1_plot2 <- effect(term="MFQSelf_c:Condition:Issue_agreement", 
+                        xlevels= list(Issue_agreement=c(1, 4), 
+                                      Condition=c("1",
+                                                  "2",
+                                                  "3",
+                                                  "4")), 
+                        mod=f1_ideology_model)
+
+effects_polident_f1_plot2 <- as.data.frame(effects_polident_f1_plot2)
+
+effects_polident_f1_plot2$Agreement<-as.factor(effects_polident_f1_plot2$Issue_agreement)
+
+f1_polident_ident_label2 <- c("1" = "Support Clinton, Acknowledge racism, \n Weed legalization, and Smooth PB",
+                             "4" = "Support Trump, Did not acknowledge racism, \n disagree with weed legalization, like crunchy peanut butter")
+
+#three-way interaction
+ggplot(effects_polident_f1_plot2, aes(MFQSelf_c, fit)) +
+  #geom_ribbon(aes(ymin=fit-se, ymax=fit+se, fill = Condition), alpha = .3) +
+  geom_line(size = 1, aes(linetype = Condition)) +
+  facet_wrap(~Agreement, 
+             labeller = labeller(Agreement=f1_polident_ident_label2)) +
+  scale_linetype_manual("Issue polarization", 
+                        breaks = c(1,2,3,4), 
+                        labels = c ("Political\ncandidate",
+                                   "Racial\ndisadvantage",
+                                   "Marijuana\nlegalization",
+                                   "Peanut\nbutter"),
+                        values = c("solid",
+                                   "twodash", 
+                                   "dotted", 
+                                   "dashed")) +
+    theme_minimal(base_size = 13) +
+  theme(legend.text = element_text(size = 10),
+        legend.key.width = unit(1.2, "cm")) +
+  labs(title = "Projection predicted by  issue condition and issue agreement",
+       x = "MFQ ratings for self",
+       y = "MFQ ratings for target")
+```
 
 ## Follow-up 2
+
+  * **opin** : Whether participants agreed or disgareed with the issue they were presented (e.g., Do you support marijuana legalization?)
+    + 1 = Yes
+    + 4 = No
+    
+```{r f2 ideology}
+contrasts(npf2_clean$condition) <- "contr.helmert"
+
+f2_ideology_model <- lmer(targ ~ self_c*ident_c*condition*opin + 
+                              (self_c|sub_id), 
+                            data = npf2_clean, na.action = na.omit)
+
+tab_model(f2_ideology_model,
+          title = "Projection predicted by ideology")
+```
+
+Model failed to converge, so results are unreliable. Any plot using intercepts and slopes from this model would also be unreliable.
 
 # Demographic differences in counter projection
 
