@@ -1227,7 +1227,7 @@ Model failed to converge, so results are unreliable. Any plot using intercepts a
 
 # Demographic differences in counter projection
 
-## Initial Study - Gender & race
+## Initial Study - Race
 
 ```{r stereo analysis with race}
 dem_analysis <- clean_data2 %>% 
@@ -1249,6 +1249,8 @@ tab_model(projmodel_stereo_race,
 ```
 
 Model is rank deficient, not enough power to check if results differ by race. Could possibly do white vs minorities, but that doesn't feel telling enough.
+
+## Initial Study - Gender
 
 ```{r stereo analysis with gender}
 gender_analysis <- clean_data2 %>% 
@@ -1273,11 +1275,51 @@ Gender does not moderate the results.
 
 ## Follow-up 1 - Gender
 
+```{r}
+f1_gender <- lmer(MFQTarg ~ MFQSelf_c*Identification_c*Condition*Gender + 
+                              (MFQSelf_c|Subject), 
+                            data = pptnpf1_comb, na.action = na.omit)
+
+```
+
+When adding gender,the model failed to converge.
+
 ## Follow-up 1 - Race
+
+```{r}
+f1_race <- lmer(MFQTarg ~ MFQSelf_c*Identification_c*Condition*Race + 
+                              (MFQSelf_c|Subject), 
+                            data = pptnpf1_comb, na.action = na.omit)
+
+```
+
+When adding race, the fixed effect model was rank deficient and dropped predictors/comparisons.
 
 ## Follow-up 2 - Gender
 
+```{r}
+npf2_clean <- npf2_clean %>% 
+  mutate(gender = as.factor(gender),
+         race = as.factor(race))
+
+f2_gender <- lmer(targ ~ self_c*ident_c*condition*gender + 
+                              (self_c|sub_id), 
+                            data = npf2_clean, na.action = na.omit)
+
+```
+
+Fixed effect model is rank deficient
+
 ## Follow-up 2 - Race
+
+```{r}
+f2_race <- lmer(targ ~ self_c*ident_c*condition*race + 
+                              (self_c|sub_id), 
+                            data = npf2_clean, na.action = na.omit)
+
+```
+
+Fixed effect model is rank deficient. We don't have enough power to include extra categorical variables...
 
 # Downstream outcomes impacted by counter projection - Initial Study
 
