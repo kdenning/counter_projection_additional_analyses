@@ -186,9 +186,11 @@ levels(clean_data2$Race) <- c("American Indian/Native Alaskan",
 #data with just the variables for analysis for stereotyping
 stereo_analysis <- clean_data2 %>% 
   select(subid, MFQ_Number, MFQSelf_c, MFQStereo_c, MFQTarg, ident_c, PT_effects, 
-         inoutgroup_effects, Man_PT, par_cand) %>%
+         inoutgroup_effects, Man_PT, par_cand, MFQStereo) %>%
   unique() %>% 
   na.omit()
+
+
 ```
 
 ```{r data import and cleaning F1, include = FALSE}
@@ -514,14 +516,14 @@ ggplot(is_group_cand, aes(MFQSelf_c,
 mfq_binding <- clean_data2 %>% 
   filter(MFQ_Number %in% c("3", "4", "5", "9", "10", "11", "14", "15", "16", 
                            "19", "20", "21", "25", "26", "27", "30", "31", "32")) %>%
-  select(subid, MFQ_Number, MFQTarg, MFQSelf_c, MFQStereo_c, inoutgroup_effects, ident_c, par_cand) %>% 
+  select(subid, MFQ_Number, MFQTarg, MFQSelf_c, MFQSelf, MFQStereo_c, MFQStereo, inoutgroup_effects, ident_c, par_cand, Liking, WilltoDiscuss, Valid, Treatment, Contentious) %>% 
   unique() %>% 
   na.omit()
 
 mfq_individual <- clean_data2 %>% 
   filter(MFQ_Number %in% c("1", "2", "7", "8", "12", "13", "17", "18", "23", 
                            "24", "28", "29")) %>%
-  select(subid, MFQ_Number, MFQTarg, MFQSelf_c, MFQStereo_c, inoutgroup_effects, ident_c, par_cand) %>% 
+  select(subid, MFQ_Number, MFQTarg, MFQSelf_c, MFQSelf, MFQStereo_c, MFQStereo, inoutgroup_effects, ident_c, par_cand, Liking, WilltoDiscuss, Valid, Treatment, Contentious) %>% 
   unique() %>% 
   na.omit()
 ```
@@ -796,13 +798,13 @@ ggplot(is_indiv_group_cand, aes(MFQSelf_c,
 f1_mfq_binding <- pptnpf1_comb %>% 
   filter(number %in% c("3", "4", "5", "9", "10", "11", "14", "15", "16", 
                            "20", "21", "22")) %>%
-  select(Subject, number, Condition, MFQSelf_c, Identification_c, Gender, Race, MFQTarg) %>% 
+  select(Subject, number, Condition, MFQSelf_c, MFQSelf, Identification_c, Gender, Race, MFQTarg) %>% 
   unique() %>% 
   na.omit()
 
 f1_mfq_individual <- pptnpf1_comb %>% 
   filter(number %in% c("1", "2", "7", "8", "12", "13", "18", "19")) %>%
-  select(Subject, number, Condition, MFQSelf_c, Identification_c, Gender, Race, MFQTarg) %>% 
+  select(Subject, number, Condition, MFQSelf_c, MFQSelf, Identification_c, Gender, Race, MFQTarg) %>% 
   unique() %>% 
   na.omit()
 ```
@@ -1322,6 +1324,99 @@ f2_race <- lmer(targ ~ self_c*ident_c*condition*race +
 Fixed effect model is rank deficient. We don't have enough power to include extra categorical variables...
 
 # Downstream outcomes impacted by counter projection - Initial Study
+
+```{r downstream outcomes data prep}
+downstream_analysis <- clean_data2 %>% 
+  select(subid, MFQ_Number, MFQSelf, MFQSelf_c, MFQStereo_c, MFQTarg, ident_c,
+         inoutgroup_effects, par_cand, Liking, WilltoDiscuss, Contentious, Treatment, Valid, MFQStereo) %>%
+  unique() %>% 
+  na.omit() %>% 
+  group_by(subid) %>% 
+  mutate(proj_diff = abs(mean(MFQTarg) - mean(MFQSelf)),
+         stereo_diff = abs(mean(MFQTarg)- mean(MFQStereo)))
+  
+
+mfq_binding_diff <- mfq_binding %>% 
+  group_by(subid) %>% 
+  mutate(proj_bind_diff = abs(mean(MFQTarg) - mean(MFQSelf)),
+         stereo_bind_diff = abs(mean(MFQTarg) - mean(MFQStereo)))
+
+mfq_individual_diff <- mfq_individual %>% 
+ group_by(subid) %>% 
+  mutate(proj_indiv_diff = abs(mean(MFQTarg) - mean(MFQStereo)),
+         stereo_indiv_diff = abs(mean(MFQTarg) - mean(MFQStereo))) %>% 
+  na.omit()
+```
+
+## How much do you like the target?
+
+```{r liking output}
+liking_overall <- lm(Liking ~ proj_diff*stereo_diff*inoutgroup_effects*ident_c, downstream_analysis)
+summary(liking_overall)
+
+liking_bind <- lm(Liking ~ proj_bind_diff*stereo_bind_diff*inoutgroup_effects*ident_c, mfq_binding_diff)
+summary(liking_bind)
+
+liking_indiv <- lm(Liking ~ proj_indiv_diff*stereo_indiv_diff*inoutgroup_effects*ident_c, mfq_individual_diff)
+summary(liking_indiv)
+
+linear_check <- lm(Liking ~ proj_indiv_diff*stereo_indiv_diff, mfq_individual_diff)
+summary(linear_check)
+```
+
+Getting NA's for estimates for stereotyping for individuating morals - a search online says this is because it is linearly dependent on one of the other variables (has reached singularity). After running models checking interactions between each variable and stereo_indiv_diff, it is clear for individuating morals, stereotyping and projection are linearly related (pretty much the same). This is not the case for binding morals or when the morals are combined in the overall model.
+
+## How willing would you be to have a conversation about your political views with this person?
+
+```{r discuss output}
+discuss_overall <- lm(WilltoDiscuss ~ proj_diff*stereo_diff*inoutgroup_effects*ident_c, downstream_analysis)
+summary(discuss_overall)
+
+discuss_bind <- lm(WilltoDiscuss ~ proj_bind_diff*stereo_bind_diff*inoutgroup_effects*ident_c, mfq_binding_diff)
+summary(discuss_bind)
+
+discuss_indiv <- lm(WilltoDiscuss ~ proj_indiv_diff*stereo_indiv_diff*ident_c, mfq_individual_diff)
+summary(discuss_indiv)
+```
+
+## How contentious do you think a conversation about your political views would be with this person?
+
+```{r contentious output}
+content_overall <- lm(Contentious ~ proj_diff*stereo_diff*inoutgroup_effects*ident_c, downstream_analysis)
+summary(content_overall)
+
+content_bind <- lm(Contentious ~ proj_bind_diff*stereo_bind_diff*ident_c*inoutgroup_effects, mfq_binding_diff)
+summary(content_bind)
+
+content_indiv <- lm(Contentious  ~ proj_indiv_diff*stereo_indiv_diff*ident_c*inoutgroup_effects, mfq_individual_diff)
+summary(content_indiv)
+```
+
+## How well you think the target would treat you during this conversation?
+
+```{r treat output}
+treat_overall <- lm(Treatment ~ proj_diff*stereo_diff*inoutgroup_effects*ident_c, downstream_analysis)
+summary(treat_overall)
+
+treat_bind <- lm(Treatment ~ proj_bind_diff*stereo_bind_diff*inoutgroup_effects*ident_c, mfq_binding_diff)
+summary(treat_bind)
+
+treat_indiv <- lm(Treatment  ~ proj_indiv_diff*stereo_indiv_diff*inoutgroup_effects*ident_c, mfq_individual_diff)
+summary(treat_indiv)
+```
+
+## How valid do you think the target's political position is?
+
+```{r valid output}
+valid_overall <- lm(Valid ~ proj_diff*stereo_diff*inoutgroup_effects*ident_c, downstream_analysis)
+summary(valid_overall)
+
+valid_bind <- lm(Valid~ proj_bind_diff*stereo_bind_diff*inoutgroup_effects*ident_c, mfq_binding_diff)
+summary(valid_bind)
+
+valid_indiv <- lm(Valid  ~ proj_indiv_diff*stereo_indiv_diff*inoutgroup_effects*ident_c, mfq_individual_diff)
+summary(valid_indiv)
+```
 
 # Look at how they respond for in-group to address demand? Does this mean looking at whether they are approve or disapprove of the condition in F1 and F2? Could do liberal leaning vs conservative leaning, minus PB and third party
 
