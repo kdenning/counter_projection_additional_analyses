@@ -1332,9 +1332,10 @@ downstream_analysis <- clean_data2 %>%
   unique() %>% 
   na.omit() %>% 
   group_by(subid) %>% 
+  #getting the difference scores
+  #decided to not mean center difference scores, since 0 is meaningful (no difference = 100% projection) 
   mutate(proj_diff = abs(mean(MFQTarg) - mean(MFQSelf)),
          stereo_diff = abs(mean(MFQTarg)- mean(MFQStereo)))
-  
 
 mfq_binding_diff <- mfq_binding %>% 
   group_by(subid) %>% 
@@ -1350,13 +1351,145 @@ mfq_individual_diff <- mfq_individual %>%
 
 ## How much do you like the target?
 
-```{r liking output}
+### Overall model
+
+```{r liking output overall}
 liking_overall <- lm(Liking ~ proj_diff*stereo_diff*inoutgroup_effects*ident_c, downstream_analysis)
 summary(liking_overall)
+```
 
+### Overall model Plots
+
+```{r liking overall plots}
+#main effect of projection
+ggplot(downstream_analysis, aes(proj_diff, Liking)) +
+  geom_smooth(method = "lm") +
+  theme_minimal() +
+  labs(title = "Liking predicted by projection of moral values",
+       subtitle = "Projection is the absolute value of the difference score \nbetween average MFQ scores for target and self",
+       x = "Projection (Higher numbers indicate lower projection)",
+       y = "Liking")
+```
+
+Counter projection can be seen as anything with a distance over 1, as that means that people are not listing their score as the same as the targets. The greater the distance demonstrates the greater the counter projection. As can be seen, as people counter project more, they report liking the target less. People who project normally report liking the target the most.
+
+```{r liking overall interaction}
+#interaction between projection and degree of identification
+describe(downstream_analysis$ident_c)
+
+liking_overall_2way <- effect(term = "proj_diff:ident_c", 
+                           xlevels = list(ident_c = c(-1.78, 0, 1.78)), 
+                           mod = liking_overall)
+
+liking_overall_2way <- as.data.frame(liking_overall_2way)
+
+liking_overall_2way$Identification <- as.factor(liking_overall_2way$ident_c)
+
+ggplot(liking_overall_2way, aes(proj_diff, fit, group = Identification, color = Identification)) +
+  geom_smooth(method = "lm") +
+  theme_minimal() +
+  scale_color_discrete("Identification", breaks = c(-1.78, 0, 1.78), 
+                       labels = c("Weak identification \n (1 SD below)", 
+                                  "Average identification", 
+                                  "High identification \n (1 SD above)")) +
+  labs(title = "Liking predicted by projection of moral values",
+       subtitle = "Projection is the absolute value of the difference score between average \nMFQ scores for target and self. Higher scores = greater counter projection.",
+       x = "Projection (Higher = more counter projection)",
+       y = "Liking")
+```
+
+Those who weakly identify continue to like the target, even as the distance between their scores on the MFQ and their target's increase (becoming less similar, less projection). As in-group identification increases, self-reported liking of the target decreases as counter projection increases.
+
+### Binding model
+
+```{r liking binding output}
 liking_bind <- lm(Liking ~ proj_bind_diff*stereo_bind_diff*inoutgroup_effects*ident_c, mfq_binding_diff)
 summary(liking_bind)
+```
 
+### Binding model plots
+
+```{r binding liking main effect}
+#main effect of projection
+ggplot(mfq_binding_diff, aes(proj_bind_diff, Liking)) +
+  geom_smooth(method = "lm") +
+  theme_minimal() +
+  labs(title = "Liking predicted by projection of binding morals",
+       subtitle = "Projection is the absolute value of the difference score \nbetween average MFQ scores for target and self",
+       x = "Projection (Higher numbers indicate lower projection)",
+       y = "Liking")
+```
+
+Same as overall plot.
+
+```{r liking binding interaction group}
+liking_bind_2way_group <- effect(term = "proj_bind_diff:inoutgroup_effects", 
+                           xlevels = list(inoutgroup_effects = c(-.5,.5)), 
+                           mod = liking_bind)
+
+liking_bind_2way_group <- as.data.frame(liking_bind_2way_group)
+
+liking_bind_2way_group$group <- as.factor(liking_bind_2way_group$inoutgroup_effects)
+
+ggplot(liking_bind_2way_group, aes(proj_bind_diff, fit, group = group, color = group)) +
+ geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black", 
+              aes(linetype = group)) +
+  theme_minimal() +
+  scale_linetype_manual("Group", breaks = c(-.5, .5), 
+                       labels = c("Out-group", "In-group"),
+                       values = c("solid", 
+                                   "dashed")) +
+  labs(title = "Liking predicted by projection of binding moral values",
+       subtitle = "Projection is the absolute value of the difference score between average \nMFQ scores for target and self. Higher scores = greater counter projection.",
+       x = "Projection (Higher = more counter projection)",
+       y = "Liking")
+```
+
+Liking stays high with the in-group, regardless of their degree of projection. Liking is highest for the out-group when they are projecting. As counter projection increases (the distance becomes further), liking decreases for the out-group.
+
+```{r binding liking 3way}
+describe(stereo_analysis$ident_c)
+
+binding_liking_3way <- effect(term = "proj_bind_diff:inoutgroup_effects:ident_c", 
+                           xlevels = list(ident_c = c(-1.78, 0, 1.78), 
+                                         inoutgroup_effects = c(-.5,.5)), 
+                           mod = liking_bind)
+
+binding_liking_3way <- as.data.frame(binding_liking_3way)
+
+binding_liking_3way$Group <- as.factor(binding_liking_3way$inoutgroup_effects)
+binding_liking_3way$Identification <- as.factor(binding_liking_3way$ident_c)
+
+ident_label <- c("-1.78" = "Low identification \n (1 SD below)", 
+                 "0" = "Average identification",
+                 "1.78" = "High identificatiion \n(1 SD above)")
+
+
+#three-way interaction
+ggplot(binding_liking_3way, aes(proj_bind_diff,
+                             fit, 
+                             group = Group,
+                             color = Group)) +
+  geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black", 
+              aes(linetype = Group)) +
+  facet_wrap(~Identification, labeller = 
+               labeller(Identification = ident_label)) +
+  scale_linetype_manual("Group", breaks = c(-.5, .5), 
+                       labels = c("Out-group", "In-group"),
+                       values = c("solid", 
+                                   "dashed")) +
+  theme_minimal() +
+  labs(title = "Liking predicted by projection of binding morals, \nin-group identification and group membership",
+       subtitle = "Controlling for stereotyping",
+       x = "Projection difference scores (higher = more counter projection)",
+       y = "Liking")
+```
+
+As can be seen in the plot above, people report liking an in-group target at a similiar rate regardless of projection, while liking of the out-group target decreases as both counter projection and in-group identification increase. Thus, the people who report liking the least are considering an out-group target and are highly identified with their in-group as well as projecting their own morals the least.
+
+### Individuating model
+
+```{r liking individuating model}
 liking_indiv <- lm(Liking ~ proj_indiv_diff*stereo_indiv_diff*inoutgroup_effects*ident_c, mfq_individual_diff)
 summary(liking_indiv)
 
@@ -1366,15 +1499,239 @@ summary(linear_check)
 
 Getting NA's for estimates for stereotyping for individuating morals - a search online says this is because it is linearly dependent on one of the other variables (has reached singularity). After running models checking interactions between each variable and stereo_indiv_diff, it is clear for individuating morals, stereotyping and projection are linearly related (pretty much the same). This is not the case for binding morals or when the morals are combined in the overall model.
 
+Decided not to plot individuating models, as we cannot claim this is due to counter projection, as projection is the same as stereotyping in this case.
+
 ## How willing would you be to have a conversation about your political views with this person?
 
-```{r discuss output}
+### Overall model output
+
+```{r discuss overall output}
 discuss_overall <- lm(WilltoDiscuss ~ proj_diff*stereo_diff*inoutgroup_effects*ident_c, downstream_analysis)
 summary(discuss_overall)
+```
 
+### Overall plots
+
+```{r will to discuss overall main effect}
+#main effect of projection
+ggplot(downstream_analysis, aes(proj_diff, WilltoDiscuss)) +
+  geom_smooth(method = "lm") +
+  theme_minimal() +
+  labs(title = "Willingness to have a coversation with target predicted by projection of morals",
+       subtitle = "Projection is the absolute value of the difference score \nbetween average MFQ scores for target and self",
+       x = "Projection (Higher numbers indicate lower projection)",
+       y = "Willingness")
+```
+
+
+```{r will to discuss overall interaction group}
+discuss_overall_2way_group <- effect(term = "proj_diff:inoutgroup_effects", 
+                           xlevels = list(inoutgroup_effects = c(-.5,.5)), 
+                           mod = discuss_overall)
+
+discuss_overall_2way_group <- as.data.frame(discuss_overall_2way_group)
+
+discuss_overall_2way_group$group <- as.factor(discuss_overall_2way_group$inoutgroup_effects)
+
+ggplot(discuss_overall_2way_group, aes(proj_diff, fit, group = group, color = group)) +
+ geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black", 
+              aes(linetype = group)) +
+  theme_minimal() +
+  scale_linetype_manual("Group", breaks = c(-.5, .5), 
+                       labels = c("Out-group", "In-group"),
+                       values = c("solid", 
+                                   "dashed")) +
+  labs(title = "Willingness to have conversation with target predicted by projection and target group",
+       subtitle = "Projection is the absolute value of the difference score between average \nMFQ scores for target and self. Higher scores = greater counter projection.",
+       x = "Projection (Higher = more counter projection)",
+       y = "Willingness")
+```
+
+Willingness to have a conversation increases for people in the out-group as counter projection increases, while it decreases for the in-group as counter projection occurs. One possible explanation may be that people are willing to have a conversation with their out-group who they see as morally different in order to change them, while people in their in-group who have opposite morals might be more difficult (since they seemingly chose not to have some of the morals the in-group generally seems to share).
+
+```{r discuss 2way identification}
+discuss_overall_2way_ident <- effect(term = "proj_diff:ident_c", 
+                           xlevels = list(ident_c = c(-1.78, 0, 1.78)), 
+                           mod = discuss_overall)
+
+discuss_overall_2way_ident <- as.data.frame(discuss_overall_2way_ident)
+
+discuss_overall_2way_ident$Identification <- as.factor(discuss_overall_2way_ident$ident_c)
+
+ggplot(discuss_overall_2way_ident, aes(proj_diff, fit, group = Identification, color = Identification)) +
+ geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black", 
+              aes(linetype = Identification)) +
+  theme_minimal() +
+  scale_linetype_manual("Identification", breaks = c(-1.78, 0, 1.78), 
+                       labels = c("Weak (1 SD below)",
+                                  "Average",
+                                  "High (1 SD above)"),
+                       values = c("solid", 
+                                  "dashed",
+                                  "dotted")) +
+  labs(title = "Willingness to have conversation with target predicted by projection and identification",
+       subtitle = "Projection is the absolute value of the difference score between average \nMFQ scores for target and self. Higher scores = greater counter projection.",
+       x = "Projection (Higher = more counter projection)",
+       y = "Willingness")
+
+```
+
+Willingness to have a conversation starts highest for all levels of identification when they project and this decreases as counter projection increases. However, as can be seen in the plot, the decrease in willingness to discuss as counter projection increases is steepest in higher identifiers, followed by average identifiers.
+
+```{r discuss 3way}
+discuss_overall_3way <- effect(term = "proj_diff:inoutgroup_effects:ident_c", 
+                           xlevels = list(ident_c = c(-1.78, 0, 1.78), 
+                                         inoutgroup_effects = c(-.5,.5)), 
+                           mod = discuss_overall)
+
+discuss_overall_3way<- as.data.frame(discuss_overall_3way)
+
+discuss_overall_3way$Group <- as.factor(discuss_overall_3way$inoutgroup_effects)
+discuss_overall_3way$Identification <- as.factor(discuss_overall_3way$ident_c)
+
+ident_label <- c("-1.78" = "Low identification \n (1 SD below)", 
+                 "0" = "Average identification",
+                 "1.78" = "High identificatiion \n(1 SD above)")
+
+
+#three-way interaction
+ggplot(discuss_overall_3way, aes(proj_diff,
+                             fit, 
+                             group = Group,
+                             color = Group)) +
+  geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black", 
+              aes(linetype = Group)) +
+  facet_wrap(~Identification, labeller = 
+               labeller(Identification = ident_label)) +
+  scale_linetype_manual("Group", breaks = c(-.5, .5), 
+                       labels = c("Out-group", "In-group"),
+                       values = c("solid", 
+                                   "dashed")) +
+  theme_minimal() +
+  labs(title = "Willingness to discuss predicted by projection of morals, \nin-group identification and group membership",
+       subtitle = "Controlling for stereotyping",
+       x = "Projection difference scores (higher = more counter projection)",
+       y = "Willingness")
+```
+
+Willingness to have a conversation increases the most for out-group targets as counter projection increases and in-group identification increases (weird...). In contrast, willingness to have a conversation with in-group targets decrease as both in-group identification and counter projection increase. 
+
+### Binding model output
+
+```{r discuss bind output}
 discuss_bind <- lm(WilltoDiscuss ~ proj_bind_diff*stereo_bind_diff*inoutgroup_effects*ident_c, mfq_binding_diff)
 summary(discuss_bind)
+```
 
+### Binding plots
+
+```{r will to discuss binding main effect}
+#main effect of projection
+ggplot(mfq_binding_diff, aes(proj_bind_diff, WilltoDiscuss)) +
+  geom_smooth(method = "lm") +
+  theme_minimal() +
+  labs(title = "Willingness to have a coversation with target predicted by projection of binding morals",
+       subtitle = "Projection is the absolute value of the difference score \nbetween average MFQ scores for target and self",
+       x = "Projection (Higher numbers indicate lower projection)",
+       y = "Willingness")
+```
+
+```{r will to discuss binding interaction group}
+discuss_bind_2way_group <- effect(term = "proj_bind_diff:inoutgroup_effects", 
+                           xlevels = list(inoutgroup_effects = c(-.5,.5)), 
+                           mod = discuss_bind)
+
+discuss_bind_2way_group <- as.data.frame(discuss_bind_2way_group)
+
+discuss_bind_2way_group$group <- as.factor(discuss_bind_2way_group$inoutgroup_effects)
+
+ggplot(discuss_bind_2way_group, aes(proj_bind_diff, fit, group = group, color = group)) +
+ geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black", 
+              aes(linetype = group)) +
+  theme_minimal() +
+  scale_linetype_manual("Group", breaks = c(-.5, .5), 
+                       labels = c("Out-group", "In-group"),
+                       values = c("solid", 
+                                   "dashed")) +
+  labs(title = "Willingness to have conversation with target predicted by projection of binding morals and target group",
+       subtitle = "Projection is the absolute value of the difference score between average \nMFQ scores for target and self. Higher scores = greater counter projection.",
+       x = "Projection (Higher = more counter projection)",
+       y = "Willingness")
+```
+
+Doesn't look like much of an interaction... but, I guess, eventually they would overalap as counter projection increases... Either way, people start out less willing to have a conversation with their out-group than their in-group. As counter projection increases, people's willingness to discuss decreases for both in and out-group targets, but more quickly for in-group targets.
+
+```{r discuss binding 2way identification}
+discuss_bind_2way_ident <- effect(term = "proj_bind_diff:ident_c", 
+                           xlevels = list(ident_c = c(-1.78, 0, 1.78)), 
+                           mod = discuss_bind)
+
+discuss_bind_2way_ident <- as.data.frame(discuss_bind_2way_ident)
+
+discuss_bind_2way_ident$Identification <- as.factor(discuss_bind_2way_ident$ident_c)
+
+ggplot(discuss_bind_2way_ident, aes(proj_bind_diff, fit, group = Identification, color = Identification)) +
+ geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black", 
+              aes(linetype = Identification)) +
+  theme_minimal() +
+  scale_linetype_manual("Identification", breaks = c(-1.78, 0, 1.78), 
+                       labels = c("Weak (1 SD below)",
+                                  "Average",
+                                  "High (1 SD above)"),
+                       values = c("solid", 
+                                  "dashed",
+                                  "dotted")) +
+  labs(title = "Willingness to have conversation with target predicted by projection of binding morals and identification",
+       subtitle = "Projection is the absolute value of the difference score between average \nMFQ scores for target and self. Higher scores = greater counter projection.",
+       x = "Projection (Higher = more counter projection)",
+       y = "Willingness")
+
+```
+
+Similiar to the last model in not being much of an interaction...
+
+```{r discuss binding 3way}
+discuss_bind_3way <- effect(term = "proj_bind_diff:inoutgroup_effects:ident_c", 
+                           xlevels = list(ident_c = c(-1.78, 0, 1.78), 
+                                         inoutgroup_effects = c(-.5,.5)), 
+                           mod = discuss_bind)
+
+discuss_bind_3way <- as.data.frame(discuss_bind_3way)
+
+discuss_bind_3way$Group <- as.factor(discuss_bind_3way$inoutgroup_effects)
+discuss_bind_3way$Identification <- as.factor(discuss_bind_3way$ident_c)
+
+ident_label <- c("-1.78" = "Low identification \n (1 SD below)", 
+                 "0" = "Average identification",
+                 "1.78" = "High identificatiion \n(1 SD above)")
+
+
+#three-way interaction
+ggplot(discuss_bind_3way, aes(proj_bind_diff,
+                             fit, 
+                             group = Group,
+                             color = Group)) +
+  geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black", 
+              aes(linetype = Group)) +
+  facet_wrap(~Identification, labeller = 
+               labeller(Identification = ident_label)) +
+  scale_linetype_manual("Group", breaks = c(-.5, .5), 
+                       labels = c("Out-group", "In-group"),
+                       values = c("solid", 
+                                   "dashed")) +
+  theme_minimal() +
+  labs(title = "Willingness to discuss predicted by projection of binding morals, \nin-group identification and group membership",
+       subtitle = "Controlling for stereotyping",
+       x = "Projection difference scores (higher = more counter projection)",
+       y = "Willingness")
+```
+
+Now this is more interesting! People who are highly identified with their in-group report the highest willingness to have a conversation with an in-group target, especially when they are projecting. Their decrease in willingness to discuss with their out-group as counter projection increases is the least steep, still resulting in a higher willingness than all other conditions. The lowest willingness to have a conversation occurred with out-group targets when participants' highly identified with their in-group and were counter projecting. Scores for willingness to discuss for in and out-group targets were the closet to one another when participants were weakly identified with their in-group and were counter projecting.
+
+
+### Individuating model output
+
+```{r discuss indiv output}
 discuss_indiv <- lm(WilltoDiscuss ~ proj_indiv_diff*stereo_indiv_diff*ident_c, mfq_individual_diff)
 summary(discuss_indiv)
 ```
