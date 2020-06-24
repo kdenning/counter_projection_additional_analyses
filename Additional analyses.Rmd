@@ -300,38 +300,35 @@ npf2_clean <- npf2_wide_recode %>%
   filter(check != 4)
 ```
 
-# Stereotyping analysis: Initial Study
+# Stereotype moderator analysis: Initial Study
 
 ```{r stereo analysis}
 #model
-projmodel_stereo_dem <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c *
+projmodel_stereo <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c *
                                     inoutgroup_effects * ident_c +
                                     (MFQSelf_c|subid), 
                                  data = stereo_analysis)
 
 #results
-tab_model(projmodel_stereo_included,
+tab_model(projmodel_stereo,
           title = "Projection moderated by stereotyping")
 
 ```
 
-```{r}
-describe(stereo_analysis$ident_c)
-describe(stereo_analysis$inoutgroup_effects)
-
+```{r three-way stereo set-up}
 initial_study_3way <- effect(term = "MFQSelf_c:inoutgroup_effects:ident_c", 
-                           xlevels = list(ident_c = c(-1.8, 0, 1.8), 
+                           xlevels = list(ident_c = c(-1.78, 0, 1.78), 
                                          inoutgroup_effects = c(-.5,.5)), 
-                           mod = projmodel_stereo_included)
+                           mod = projmodel_stereo)
 
 initial_study_3way <- as.data.frame(initial_study_3way)
 
 initial_study_3way$Group <- as.factor(initial_study_3way$inoutgroup_effects)
 initial_study_3way$Identification <- as.factor(initial_study_3way$ident_c)
 
-ident_label <- c("-1.8" = "Low identification \n (1 SD below)", 
+ident_label <- c("-1.78" = "Low identification \n (1 SD below)", 
                  "0" = "Average identification",
-                 "1.8" = "High identificatiion \n(1 SD above)")
+                 "1.78" = "High identificatiion \n(1 SD above)")
 
 ```
 
@@ -356,10 +353,9 @@ ggplot(initial_study_3way, aes(MFQSelf_c,
 ```
 
 ```{r main effect group plot set-up, include = FALSE}
-# getting the information for the main effect of group
 initial_study_main_group <- effect(term = "MFQSelf_c:inoutgroup_effects", 
                              xlevels = list(inoutgroup_effects = c(-.5,.5)), 
-                             mod = projmodel_stereo_included)
+                             mod = projmodel_stereo)
 
 initial_study_main_group <- as.data.frame(initial_study_main_group)
 
@@ -384,28 +380,28 @@ ggplot(initial_study_main_group, aes(MFQSelf_c,
        y = "MFQ responses for target")
 ```
 
+
 These results demonstrate that our significant three-way interaction from before is no longer significant, but the main effect of group identification still is significant and still shows counter projection. The three-way is not significant because, regardless of in-group identification, people are still counter projecting to the same extent with their out-group and projecting normally with their in-group.
+
 
 ## With political affiliation as moderator
 
 ```{r stereo analysis by cand}
-#model
 is_cand <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c *
                                     inoutgroup_effects * ident_c * par_cand +
                                     (MFQSelf_c|subid), 
                                  data = stereo_analysis)
 
-#results
 tab_model(is_cand,
           title = "Projection moderated by stereotyping")
 
 ```
 
+
 When we include who the participant voted for with stereotyping as well, we still have the main effect from above. Now, the interaction between target group and in-group identification is significant. There is also an interaction between target group (in or out) and who the participant voted for. However, an interaction between target group, degree of in-group identification, and who they voted for is not significant. There are other significant interactions including stereotyping, but, since we only included it as a moderator to see if the relationship persisted, I didn't go through them thoroughly.
 
-```{r is group by cand}
-levels(stereo_analysis$par_cand)
-# getting the information for the main effect of group
+
+```{r is group by cand set-up}
 is_group_cand <- effect(term = "MFQSelf_c:inoutgroup_effects:par_cand", 
                              xlevels = list(inoutgroup_effects = c(-.5,.5),
                                             par_cand = c("Clinton", "Trump")), 
@@ -414,11 +410,9 @@ is_group_cand <- effect(term = "MFQSelf_c:inoutgroup_effects:par_cand",
 is_group_cand <- as.data.frame(is_group_cand)
 
 is_group_cand$Group <- as.factor(is_group_cand$inoutgroup_effects)
-
-
 ```
 
-```{r is group by cand}
+```{r is group by cand plot}
 ggplot(is_group_cand, aes(MFQSelf_c, 
                                fit, 
                                group = Group, 
@@ -437,13 +431,11 @@ ggplot(is_group_cand, aes(MFQSelf_c,
        y = "MFQ responses for target")
 ```   
 
+
 Clinton supporters counter project and Trump supporters do not. I've checked this a lot and it seems to be correct, I must have messed up in my first year when I analyzed it...
 
 
 ```{r stereo cand 3way set-up}
-describe(stereo_analysis$ident_c)
-describe(stereo_analysis$inoutgroup_effects)
-
 is_3way_cand <- effect(term = "MFQSelf_c:inoutgroup_effects:ident_c", 
                            xlevels = list(ident_c = c(-1.78, 0, 1.78), 
                                          inoutgroup_effects = c(-.5,.5)), 
@@ -457,7 +449,6 @@ is_3way_cand$Identification <- as.factor(is_3way_cand$ident_c)
 ident_label <- c("-1.78" = "Low identification \n (1 SD below)", 
                  "0" = "Average identification",
                  "1.78" = "High identificatiion \n(1 SD above)")
-
 ```
 
 ```{r three-way stereo cand}
@@ -481,7 +472,6 @@ ggplot(is_3way_cand, aes(MFQSelf_c,
 ```
 
 ```{r main effect group plot set-up cand, include = FALSE}
-# getting the information for the main effect of group
 is_group_cand <- effect(term = "MFQSelf_c:inoutgroup_effects", 
                              xlevels = list(inoutgroup_effects = c(-.5,.5)), 
                              mod = is_cand)
@@ -531,6 +521,7 @@ mfq_individual <- clean_data2 %>%
 ## Initial Study
 
 ### Binding
+
 ```{r mfq binding model}
 #model
 is_mfqbinding <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c *
@@ -544,8 +535,6 @@ tab_model(is_mfqbinding,
 ```
 
 ```{r 3 way mfq binding set up}
-describe(mfq_binding$ident_c)
-
 is_binding_3way <- effect(term = "MFQSelf_c:inoutgroup_effects:ident_c", 
                            xlevels = list(ident_c = c(-1.78, 0, 1.78), 
                                          inoutgroup_effects = c(-.5,.5)), 
@@ -559,7 +548,6 @@ is_binding_3way$Identification <- as.factor(is_binding_3way$ident_c)
 ident_label <- c("-1.78" = "Low identification \n (1 SD below)", 
                  "0" = "Average identification",
                  "1.78" = "High identificatiion \n(1 SD above)")
-
 ```
 
 ```{r 3way mfq binding plot}
@@ -583,7 +571,6 @@ ggplot(is_binding_3way, aes(MFQSelf_c,
 ```
 
 ```{r binding main effectgroup plot set-up, include = FALSE}
-# getting the information for the main effect of group
 is_binding_group <- effect(term = "MFQSelf_c:inoutgroup_effects", 
                              xlevels = list(inoutgroup_effects = c(-.5,.5)), 
                              mod = is_mfqbinding)
@@ -614,21 +601,20 @@ ggplot(is_binding_group, aes(MFQSelf_c,
 ### Binding including participant vote
 
 ```{r mfq binding model cand}
-#model
 is_mfqbinding_cand <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c *
                                     inoutgroup_effects * ident_c * par_cand +
                                     (MFQSelf_c|subid), 
                                  data = mfq_binding)
 
-#results
 tab_model(is_mfqbinding_cand,
           title = "Projection moderated by stereotyping for binding morals")
 ```
 
+
 Main effect of target group is still significant. Who participants voted for is marginal (.050). The interaction between target group and identification is still significant. The interaction between target group, identification, and who they voted for is not significant.
 
-```{r binding group by cand}
-# getting the information for the main effect of group
+
+```{r binding group by cand set-up}
 bind_group_cand <- effect(term = "MFQSelf_c:inoutgroup_effects:par_cand", 
                              xlevels = list(inoutgroup_effects = c(-.5,.5),
                                             par_cand = c("Clinton", "Trump")), 
@@ -637,11 +623,9 @@ bind_group_cand <- effect(term = "MFQSelf_c:inoutgroup_effects:par_cand",
 bind_group_cand <- as.data.frame(bind_group_cand)
 
 bind_group_cand$Group <- as.factor(bind_group_cand$inoutgroup_effects)
-
-
 ```
 
-```{r binding group by cand}
+```{r binding group by cand plot}
 ggplot(bind_group_cand, aes(MFQSelf_c, 
                                fit, 
                                group = Group, 
@@ -663,19 +647,18 @@ ggplot(bind_group_cand, aes(MFQSelf_c,
 ### Individualizing
 
 ```{r mfq individual model}
-#model
 is_mfqindividual <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c *
                                     inoutgroup_effects * ident_c +
                                     (MFQSelf_c|subid), 
                                  data = mfq_individual)
 
-#results
 tab_model(is_mfqindividual,
           title = "Projection moderated by stereotyping for individualizing morals")
 ```
 
 
 The main effect of target group is still significant. The interaction between target group and identification is no longer significant, but I plotted it just to show the difference.
+
 
 ```{r 3 way mfq individual set up}
 describe(mfq_individual$ident_c)
@@ -762,8 +745,8 @@ tab_model(is_mfqindividual_cand,
 
 Main effect of target group is still significant. The main effect of who participants voted for is marginal (.077). The interactions between target group and identification  between target group and who participants voted for, and target group, identification, and who participants voted for are all not significant.
 
+
 ```{r individual main effectgroup plot set-up with cand, include = FALSE}
-# getting the information for the main effect of group
 is_indiv_group_cand <- effect(term = "MFQSelf_c:inoutgroup_effects", 
                              xlevels = list(inoutgroup_effects = c(-.5,.5)), 
                              mod = is_mfqindividual_cand)
@@ -821,8 +804,6 @@ tab_model(f1_binding,
 ```
 
 ```{r f1 binding three way,include = FALSE, echo = FALSE}
-#Creating label for in-group identification so it can be treated like a categorical variable in the plot
-describe(f1_mfq_binding$Identification_c)
 Ident_label <- c("-1.19" = "Low identification \n (1 SD below)",
                  "0" = "Average \n identification",
                  "1.19" = "High identification \n (1 SD above)")
@@ -833,7 +814,6 @@ f1_binding_summary_3way <-summary(lsmeans(f1_binding ,
                                at = list (MFQSelf_c = c(-3:3), 
                                           Identification_c = c(-1.19, 0, 1.19))))
 ```
-
 
 ```{r Three-way BW model f1 binding}
 #running the plot
@@ -873,6 +853,7 @@ ggplot(f1_binding_summary_3way, aes(x = MFQSelf_c,
   
 ggpreview(width = 8, height = 6, units = "in")
 ```
+
 
 Not much different than the overall, except now average identifiers in the political condition are negatively projecting and people in the racial disadvantage condition who highly identify aren't projecting at all.
 
@@ -915,9 +896,6 @@ ggpreview(width = 8, height = 6, units = "in")
 Only difference is now there is counter projection in the political candidate condition.
 
 ```{r f1 binding ident set-up, include = FALSE}
-#information to plot main effect of in-group identification
-describe(f1_mfq_binding$Identification_c)
-
 f1_binding_ident <- effect(term ="MFQSelf_c:Identification_c", 
                              xlevels = list(Identification_c = c(-1.19, 0, 1.19)), 
                              mod = f1_binding)
@@ -968,7 +946,6 @@ The results of this model are also not that different from the overall model: th
 
 ```{r f1 indiv three way,include = FALSE, echo = FALSE}
 #Creating label for in-group identification so it can be treated like a categorical variable in the plot
-describe(f1_mfq_individual$Identification_c)
 Ident_label <- c("-1.19" = "Low identification \n (1 SD below)",
                  "0" = "Average \n identification",
                  "1.19" = "High identification \n (1 SD above)")
@@ -1020,6 +997,7 @@ ggplot(f1_individual_summary_3way, aes(x = MFQSelf_c,
 ggpreview(width = 8, height = 6, units = "in")
 ```
 
+
 Interesting! With individualizing morals, people counter project more in the political condition when they are average identified than in the overall model and people strongly counter project in both the political and racial disadvantage conditions when highly identified. The overall model did not show counter projection in the racial disadvantage condition when people were highly identified.
 
 
@@ -1057,7 +1035,9 @@ ggplot(f1_indiv_sum_cond, aes(x = MFQSelf_c,
 ggpreview(width = 8, height = 6, units = "in")
 ```
 
+
 Only difference is now there is counter projection in the political candidate condition and the racial disadvantage condition is pretty flat.
+
 
 ```{r f1 indiv ident set-up, include = FALSE}
 #information to plot main effect of in-group identification
@@ -1072,7 +1052,7 @@ f1_indiv_ident  <- as.data.frame(f1_indiv_ident)
 f1_indiv_ident$Identification <- as.factor(f1_indiv_ident$Identification_c)
 ```
 
-```{r f1 binding ident plot}
+```{r f1 indiv ident plot}
 knitr::opts_chunk$set(fig.width = 8, fig.height = 6) 
 
 ggplot(f1_indiv_ident, aes(MFQSelf_c, 
@@ -1141,9 +1121,7 @@ f1_polident_ident_label <- c("-1.19"="Low Identification \n(1 SD Below)",
                        "0" = "Average \nIdentification",
                        "1.19"="High Identification \n(1 SD Above)")
 
-#three-way interaction
 ggplot(effects_polident_f1, aes(MFQSelf_c, fit)) +
-  #geom_ribbon(aes(ymin=fit-se, ymax=fit+se, fill = Condition), alpha = .3) +
   geom_line(size = 1, aes(linetype = Condition)) +
   facet_wrap(~Identification, 
              labeller = labeller(Identification=f1_polident_ident_label)) +
@@ -1184,9 +1162,7 @@ effects_polident_f1_plot2$Agreement<-as.factor(effects_polident_f1_plot2$Issue_a
 f1_polident_ident_label2 <- c("1" = "Support Clinton, Acknowledge racism, \n Weed legalization, and Smooth PB",
                              "4" = "Support Trump, Did not acknowledge racism, \n disagree with weed legalization, like crunchy peanut butter")
 
-#three-way interaction
 ggplot(effects_polident_f1_plot2, aes(MFQSelf_c, fit)) +
-  #geom_ribbon(aes(ymin=fit-se, ymax=fit+se, fill = Condition), alpha = .3) +
   geom_line(size = 1, aes(linetype = Condition)) +
   facet_wrap(~Agreement, 
              labeller = labeller(Agreement=f1_polident_ident_label2)) +
@@ -1225,7 +1201,9 @@ tab_model(f2_ideology_model,
           title = "Projection predicted by ideology")
 ```
 
+
 Model failed to converge, so results are unreliable. Any plot using intercepts and slopes from this model would also be unreliable.
+
 
 # Demographic differences in counter projection
 
@@ -1238,19 +1216,18 @@ dem_analysis <- clean_data2 %>%
   unique() %>% 
   na.omit()
 
-#model
 projmodel_stereo_race <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c *
                                     inoutgroup_effects * ident_c * Race +
                                     (MFQSelf_c|subid), 
                                  data = dem_analysis)
 
-#results
 tab_model(projmodel_stereo_race,
           title = "Projection moderated by stereotyping and race")
-
 ```
 
+
 Model is rank deficient, not enough power to check if results differ by race. Could possibly do white vs minorities, but that doesn't feel telling enough.
+
 
 ## Initial Study - Gender
 
@@ -1261,19 +1238,18 @@ gender_analysis <- clean_data2 %>%
   unique() %>% 
   na.omit()
 
-#model
 projmodel_stereo_gender <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c *
                                     inoutgroup_effects * ident_c * Gender +
                                     (MFQSelf_c|subid), 
                                  data = gender_analysis)
 
-#results
 tab_model(projmodel_stereo_gender,
           title = "Projection moderated by stereotyping and gender")
-
 ```
 
+
 Gender does not moderate the results.
+
 
 ## Follow-up 1 - Gender
 
@@ -1281,10 +1257,11 @@ Gender does not moderate the results.
 f1_gender <- lmer(MFQTarg ~ MFQSelf_c*Identification_c*Condition*Gender + 
                               (MFQSelf_c|Subject), 
                             data = pptnpf1_comb, na.action = na.omit)
-
 ```
 
+
 When adding gender,the model failed to converge.
+
 
 ## Follow-up 1 - Race
 
@@ -1295,7 +1272,9 @@ f1_race <- lmer(MFQTarg ~ MFQSelf_c*Identification_c*Condition*Race +
 
 ```
 
+
 When adding race, the fixed effect model was rank deficient and dropped predictors/comparisons.
+
 
 ## Follow-up 2 - Gender
 
@@ -1310,7 +1289,9 @@ f2_gender <- lmer(targ ~ self_c*ident_c*condition*gender +
 
 ```
 
+
 Fixed effect model is rank deficient
+
 
 ## Follow-up 2 - Race
 
@@ -1321,7 +1302,9 @@ f2_race <- lmer(targ ~ self_c*ident_c*condition*race +
 
 ```
 
+
 Fixed effect model is rank deficient. We don't have enough power to include extra categorical variables...
+
 
 # Downstream outcomes impacted by counter projection - Initial Study
 
@@ -1445,7 +1428,9 @@ ggplot(liking_bind_2way_group, aes(proj_bind_diff, fit, group = group, color = g
        y = "Liking")
 ```
 
+
 Liking stays high with the in-group, regardless of their degree of projection. Liking is highest for the out-group when they are projecting. As counter projection increases (the distance becomes further), liking decreases for the out-group.
+
 
 ```{r binding liking 3way}
 describe(stereo_analysis$ident_c)
@@ -1464,8 +1449,6 @@ ident_label <- c("-1.78" = "Low identification \n (1 SD below)",
                  "0" = "Average identification",
                  "1.78" = "High identificatiion \n(1 SD above)")
 
-
-#three-way interaction
 ggplot(binding_liking_3way, aes(proj_bind_diff,
                              fit, 
                              group = Group,
@@ -1485,7 +1468,9 @@ ggplot(binding_liking_3way, aes(proj_bind_diff,
        y = "Liking")
 ```
 
+
 As can be seen in the plot above, people report liking an in-group target at a similiar rate regardless of projection, while liking of the out-group target decreases as both counter projection and in-group identification increase. Thus, the people who report liking the least are considering an out-group target and are highly identified with their in-group as well as projecting their own morals the least.
+
 
 ### Individuating model
 
@@ -1497,9 +1482,11 @@ linear_check <- lm(Liking ~ proj_indiv_diff*stereo_indiv_diff, mfq_individual_di
 summary(linear_check)
 ```
 
+
 Getting NA's for estimates for stereotyping for individuating morals - a search online says this is because it is linearly dependent on one of the other variables (has reached singularity). After running models checking interactions between each variable and stereo_indiv_diff, it is clear for individuating morals, stereotyping and projection are linearly related (pretty much the same). This is not the case for binding morals or when the morals are combined in the overall model.
 
 Decided not to plot individuating models, as we cannot claim this is due to counter projection, as projection is the same as stereotyping in this case.
+
 
 ## How willing would you be to have a conversation about your political views with this person?
 
@@ -1522,6 +1509,9 @@ ggplot(downstream_analysis, aes(proj_diff, WilltoDiscuss)) +
        x = "Projection (Higher numbers indicate lower projection)",
        y = "Willingness")
 ```
+
+
+As counter projection increased, willingness to have a conversation with the target decreased.
 
 
 ```{r will to discuss overall interaction group}
@@ -1547,7 +1537,9 @@ ggplot(discuss_overall_2way_group, aes(proj_diff, fit, group = group, color = gr
        y = "Willingness")
 ```
 
+
 Willingness to have a conversation increases for people in the out-group as counter projection increases, while it decreases for the in-group as counter projection occurs. One possible explanation may be that people are willing to have a conversation with their out-group who they see as morally different in order to change them, while people in their in-group who have opposite morals might be more difficult (since they seemingly chose not to have some of the morals the in-group generally seems to share).
+
 
 ```{r discuss 2way identification}
 discuss_overall_2way_ident <- effect(term = "proj_diff:ident_c", 
@@ -1576,7 +1568,9 @@ ggplot(discuss_overall_2way_ident, aes(proj_diff, fit, group = Identification, c
 
 ```
 
+
 Willingness to have a conversation starts highest for all levels of identification when they project and this decreases as counter projection increases. However, as can be seen in the plot, the decrease in willingness to discuss as counter projection increases is steepest in higher identifiers, followed by average identifiers.
+
 
 ```{r discuss 3way}
 discuss_overall_3way <- effect(term = "proj_diff:inoutgroup_effects:ident_c", 
@@ -1593,8 +1587,6 @@ ident_label <- c("-1.78" = "Low identification \n (1 SD below)",
                  "0" = "Average identification",
                  "1.78" = "High identificatiion \n(1 SD above)")
 
-
-#three-way interaction
 ggplot(discuss_overall_3way, aes(proj_diff,
                              fit, 
                              group = Group,
@@ -1614,7 +1606,9 @@ ggplot(discuss_overall_3way, aes(proj_diff,
        y = "Willingness")
 ```
 
+
 Willingness to have a conversation increases the most for out-group targets as counter projection increases and in-group identification increases (weird...). In contrast, willingness to have a conversation with in-group targets decrease as both in-group identification and counter projection increase. 
+
 
 ### Binding model output
 
@@ -1659,7 +1653,9 @@ ggplot(discuss_bind_2way_group, aes(proj_bind_diff, fit, group = group, color = 
        y = "Willingness")
 ```
 
-Doesn't look like much of an interaction... but, I guess, eventually they would overalap as counter projection increases... Either way, people start out less willing to have a conversation with their out-group than their in-group. As counter projection increases, people's willingness to discuss decreases for both in and out-group targets, but more quickly for in-group targets.
+
+Doesn't look like much of an interaction... but, I guess, eventually they would overlap as counter projection increases... Either way, people start out less willing to have a conversation with their out-group than their in-group. As counter projection increases, people's willingness to discuss decreases for both in and out-group targets, but more quickly for in-group targets.
+
 
 ```{r discuss binding 2way identification}
 discuss_bind_2way_ident <- effect(term = "proj_bind_diff:ident_c", 
@@ -1685,10 +1681,11 @@ ggplot(discuss_bind_2way_ident, aes(proj_bind_diff, fit, group = Identification,
        subtitle = "Projection is the absolute value of the difference score between average \nMFQ scores for target and self. Higher scores = greater counter projection.",
        x = "Projection (Higher = more counter projection)",
        y = "Willingness")
-
 ```
 
-Similiar to the last model in not being much of an interaction...
+
+Similar to the last model in not being much of an interaction...
+
 
 ```{r discuss binding 3way}
 discuss_bind_3way <- effect(term = "proj_bind_diff:inoutgroup_effects:ident_c", 
@@ -1705,8 +1702,6 @@ ident_label <- c("-1.78" = "Low identification \n (1 SD below)",
                  "0" = "Average identification",
                  "1.78" = "High identificatiion \n(1 SD above)")
 
-
-#three-way interaction
 ggplot(discuss_bind_3way, aes(proj_bind_diff,
                              fit, 
                              group = Group,
@@ -1725,6 +1720,7 @@ ggplot(discuss_bind_3way, aes(proj_bind_diff,
        x = "Projection difference scores (higher = more counter projection)",
        y = "Willingness")
 ```
+
 
 Now this is more interesting! People who are highly identified with their in-group report the highest willingness to have a conversation with an in-group target, especially when they are projecting. Their decrease in willingness to discuss with their out-group as counter projection increases is the least steep, still resulting in a higher willingness than all other conditions. The lowest willingness to have a conversation occurred with out-group targets when participants' highly identified with their in-group and were counter projecting. Scores for willingness to discuss for in and out-group targets were the closet to one another when participants were weakly identified with their in-group and were counter projecting.
 
@@ -1758,7 +1754,9 @@ ggplot(downstream_analysis, aes(proj_diff, Contentious)) +
        y = "Contentousness")
 ```
 
+
 As counter projection increases, predicted contentiousness with the target while have a conversation increases.
+
 
 ```{r content overall interaction group}
 content_overall_2way_group <- effect(term = "proj_diff:inoutgroup_effects", 
@@ -1783,7 +1781,9 @@ ggplot(content_overall_2way_group, aes(proj_diff, fit, group = group, color = gr
        y = "Contentiousness")
 ```
 
+
 Predicted contentiousness with a target starts higher for those considering an out-group target instead of an in-group target and increases gradually as counter projection increases. However, predicted contentiousness increases more quickly as counter projection increases for those considering an in-group target.
+
 
 ```{r content 2way identification}
 content_overall_2way_ident <- effect(term = "proj_diff:ident_c", 
@@ -1809,10 +1809,11 @@ ggplot(content_overall_2way_ident, aes(proj_diff, fit, group = Identification, c
        subtitle = "Projection is the absolute value of the difference score between average \nMFQ scores for target and self. Higher scores = greater counter projection.",
        x = "Projection (Higher = more counter projection)",
        y = "Contentiousness")
-
 ```
 
+
 Predicted contentiousness starts higher for those who are highly identified with their in-group and increases the most as counter projection increases. On the other hand, contentiousness starts the lowest for those who are weakly identified with their in-group and increases the least as counter projection increases.
+
 
 ```{r content 3way}
 content_overall_3way <- effect(term = "proj_diff:inoutgroup_effects:ident_c", 
@@ -1829,8 +1830,6 @@ ident_label <- c("-1.78" = "Low identification \n (1 SD below)",
                  "0" = "Average identification",
                  "1.78" = "High identificatiion \n(1 SD above)")
 
-
-#three-way interaction
 ggplot(content_overall_3way, aes(proj_diff,
                              fit, 
                              group = Group,
@@ -1850,9 +1849,11 @@ ggplot(content_overall_3way, aes(proj_diff,
        y = "Contentiousness")
 ```
 
+
 For those considering an out-group target, their predicted contentiousness starts higher than those considering an out-group target. As in-group identification increases, counter projection as less of an impact on predicted contentiousness with those considering out-group targets. Specifically, when weakly identified, as counter projection increases, predicted contentiousness also increases. However, when highly identified, predicted contentiousness stays the same as counter projection increases. 
 
 For those considering an in-group target, predicted contentiousness increases as counter projection increases, but more so for those who are highly identified with their in-group, followed by average identifiers, with low identifiers only showing a slight increase as counter projection increases. Interestingly, for those who are highly identified, when counter projection is high, people report higher contentiousness with the in-group target than they would with their out-group target. 
+
 
 ### Binding model
 
@@ -1864,7 +1865,6 @@ summary(content_bind)
 ### Binding plots
 
 ```{r content bind main effect}
-#main effect of projection
 ggplot(mfq_binding_diff, aes(proj_bind_diff, Contentious)) +
   geom_smooth(method = "lm") +
   theme_minimal() +
@@ -1874,7 +1874,9 @@ ggplot(mfq_binding_diff, aes(proj_bind_diff, Contentious)) +
        y = "Contentousness")
 ```
 
+
 As counter projection increases, predicted contentiousness with the target while have a conversation increases.
+
 
 ```{r content bind interaction group}
 content_bind_2way_group <- effect(term = "proj_bind_diff:inoutgroup_effects", 
@@ -1899,7 +1901,9 @@ ggplot(content_bind_2way_group, aes(proj_bind_diff, fit, group = group, color = 
        y = "Contentiousness")
 ```
 
+
 Predicted contentiousness was higher for out-group targets than in-group targets and, as counter projection of binding morals increases, contentiousness increases more for out-group targets as well. 
+
 
 ### Individuating model
 
@@ -1917,7 +1921,9 @@ treat_overall <- lm(Treatment ~ proj_diff*stereo_diff*inoutgroup_effects*ident_c
 summary(treat_overall)
 ```
 
-No main effect for treatment.
+
+No main effect for treatment - the only outcome in which this occurs.
+
 
 ### Overall plots
 
@@ -1944,7 +1950,9 @@ ggplot(treat_overall_2way_group, aes(proj_diff, fit, group = group, color = grou
        y = "Treatment")
 ```
 
+
 Participants expected the target to treat them better in the in-group than the out-group. As counter projection increased, expected treatment decreased for the out-group, while only barely decreasing for the in-group.
+
 
 ```{r treat 2way identification}
 treat_overall_2way_ident <- effect(term = "proj_diff:ident_c", 
@@ -1973,7 +1981,9 @@ ggplot(treat_overall_2way_ident, aes(proj_diff, fit, group = Identification, col
 
 ```
 
+
 For people who weakly identify with their in-group, as counter projection increases, expected treatment slightly increases. However, for people who identify with their in-group an average amount or highly, as counter projection increases, expected treatment decreases, with it decreasing the most for people who highly identified with their in-group.
+
 
 ### Binding model
 
@@ -1999,8 +2009,6 @@ ident_label <- c("-1.78" = "Low identification \n (1 SD below)",
                  "0" = "Average identification",
                  "1.78" = "High identificatiion \n(1 SD above)")
 
-
-#three-way interaction
 ggplot(treat_bind_3way, aes(proj_bind_diff,
                              fit, 
                              group = Group,
@@ -2020,7 +2028,9 @@ ggplot(treat_bind_3way, aes(proj_bind_diff,
        y = "Treatment")
 ```
 
-All treatment scores for the in-group condition were higher than those in the out-group. People in the low identification condition expected their in-group to treat them better than their out-group; However, as counter projection increased, expected treatment decreased for those in the in-group condition, while remaining the same for those in the out-group condition. For those who reported average in-group identification, as counter projection increased, people in the out-group condition reported worse treatment scores, while those in the in-group did not report a change. For those who reported high in-group identification, as counte projection increased, people expected their out-group to treat them worse, while people expected their in-group to treat them better.
+
+All treatment scores for the in-group condition were higher than those in the out-group. People in the low identification condition expected their in-group to treat them better than their out-group; However, as counter projection increased, expected treatment decreased for those in the in-group condition, while remaining the same for those in the out-group condition. For those who reported average in-group identification, as counter projection increased, people in the out-group condition reported worse treatment scores, while those in the in-group did not report a change. For those who reported high in-group identification, as count projection increased, people expected their out-group to treat them worse, while people expected their in-group to treat them better.
+
 
 ### Individuating model
 
@@ -2041,7 +2051,6 @@ summary(valid_overall)
 ### Overall plots
 
 ```{r valid overall main effect}
-#main effect of projection
 ggplot(downstream_analysis, aes(proj_diff, Valid)) +
   geom_smooth(method = "lm") +
   theme_minimal() +
@@ -2051,7 +2060,9 @@ ggplot(downstream_analysis, aes(proj_diff, Valid)) +
        y = "Validity")
 ```
 
+
 As counter projection increases, validity of the target's position decreases.
+
 
 ```{r valid overall interaction group}
 valid_overall_2way_group <- effect(term = "proj_diff:inoutgroup_effects", 
@@ -2076,7 +2087,9 @@ ggplot(valid_overall_2way_group, aes(proj_diff, fit, group = group, color = grou
        y = "Validity")
 ```
 
+
 People report higher validity of target's position in the in-group condition than out-group condition and, as counter projection increases, validity decreases more in the out-group condition than the in-group condition.
+
 
 ```{r valid 2way identification}
 valid_overall_2way_ident <- effect(term = "proj_diff:ident_c", 
@@ -2102,10 +2115,11 @@ ggplot(valid_overall_2way_ident, aes(proj_diff, fit, group = Identification, col
        subtitle = "Projection is the absolute value of the difference score between average \nMFQ scores for target and self. Higher scores = greater counter projection.",
        x = "Projection (Higher = more counter projection)",
        y = "Validity")
-
 ```
 
+
 As counter projection increases, those who report highly identifying with their in-group report the largest decrease in validity of the target's opinion, followed by those who identify with their in-group an average amount. Those who weakly identify with their in-group actually show a slight increase in reported validity as counter projection increases.
+
 
 ```{r valid 3way}
 valid_overall_3way <- effect(term = "proj_diff:inoutgroup_effects:ident_c", 
@@ -2122,8 +2136,6 @@ ident_label <- c("-1.78" = "Low identification \n (1 SD below)",
                  "0" = "Average identification",
                  "1.78" = "High identificatiion \n(1 SD above)")
 
-
-#three-way interaction
 ggplot(valid_overall_3way, aes(proj_diff,
                              fit, 
                              group = Group,
@@ -2143,7 +2155,9 @@ ggplot(valid_overall_3way, aes(proj_diff,
        y = "Validity")
 ```
 
+
 For those in the in-group position, regardless of in-group identification, as counter projection increases, reported validity decreases only slightly. However, low in-group identifiers overall reported lower validity of their in-group's opinion that high identifiers. For those in the out-group condition, as counter projection increased, low in-group identifiers report target validity increasing. However, both average and high in-group identifiers report decreases in target validity as counter projection increases, with high in-group identifiers exhibiting the largest decrease.
+
 
 ### Binding model
 
@@ -2165,7 +2179,9 @@ ggplot(mfq_binding_diff, aes(proj_bind_diff, Valid)) +
        y = "Validity")
 ```
 
+
 As counter projection of binding morals increases, validity decreases.
+
 
 ```{r valid bind 3way}
 valid_bind_3way <- effect(term = "proj_bind_diff:inoutgroup_effects:ident_c", 
@@ -2203,7 +2219,9 @@ ggplot(valid_bind_3way, aes(proj_bind_diff,
        y = "Validity")
 ```
 
-For those who weakly identify with their in-group, people report higher validity for their in-group than their out-group, but, as counter projection icnreases, valdity for both groups decreases by a similiar amount. For people who report average identification with their in-group, they report higher validity for their in-group than their out-group and, as counter projection increases, validity for the in-group does not change, while validity for the out-group decreases. For those who highly identify with their in-group, people report higher valdity for their in-gorup than their out-group and, as counter projection increases, validity for the in-group increases, while validity to th eout-group decreases to the lowest reported validity of all conditions.
+
+For those who weakly identify with their in-group, people report higher validity for their in-group than their out-group, but, as counter projection increases, validity for both groups decreases by a similar amount. For people who report average identification with their in-group, they report higher validity for their in-group than their out-group and, as counter projection increases, validity for the in-group does not change, while validity for the out-group decreases. For those who highly identify with their in-group, people report higher validity for their in-group than their out-group and, as counter projection increases, validity for the in-group increases, while validity to the out-group decreases to the lowest reported validity of all conditions.
+
 
 ### Individuating model
 
@@ -2212,11 +2230,10 @@ valid_indiv <- lm(Valid  ~ proj_indiv_diff*stereo_indiv_diff*inoutgroup_effects*
 summary(valid_indiv)
 ```
 
-
 # Look at how they respond for in-group to address demand? 
 
 Does this mean looking at whether they are approve or disapprove of the condition in F1 and F2? Could do liberal leaning vs conservative leaning, minus PB and third party
 
 # Alphas for the MFQ
 
-In the original output for initial study and follow-up 1, already done
+In the original output for initial study and follow-up 1, already done.

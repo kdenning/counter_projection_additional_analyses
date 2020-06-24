@@ -43,7 +43,7 @@ knitr::opts_chunk$set(echo = TRUE,
                       warning = FALSE)
 
 #Data after manually removing participants who did not correctly complete the PT manipulation
-npf2_wide <- import("npf2_wide_ptclean2.xlsx") 
+npf2_wide <- import("npf2_wide_ptclean2 copy.xlsx") 
 
 #dropping second row that had full questions and overwriting because don't want that for analyses
 npf2_wide <- npf2_wide[-c(1),,drop=F] 
@@ -178,6 +178,7 @@ extra_randomslopes <- lmer(targ ~ self_c*ident_c*condition + (self_c|sub_id),
 tab_model(extra_randomslopes,
           title = "Extraversion with random slopes and helmert contrasts")
 ```
+Model failed to converge and is singular.
 
 ##### Plot of two-way interaction between self and condition
 
@@ -201,6 +202,7 @@ model2_extraversion <- lmer(targ ~ self_c*ident_c*perceived_polar_c +
 tab_model(model2_extraversion,
           title = "Model 2 for extraversion only with random slopes")
 ```
+Model is singular.
 
 ```{r extra perceived polar plot set-up}
 #getting data for plot
@@ -318,6 +320,7 @@ agree_randomslopes<- lmer(targ ~ self_c*ident_c*condition + (self_c|sub_id),
 tab_model(agree_randomslopes,
           title = "Agreeableness with random slopes and helmert contrasts")
 ```
+Model is singular.
 
 ##### Plot of self interacting with condition
 
@@ -333,7 +336,7 @@ ggplot(effects_agree_main_data, aes(self_c, fit)) +
   geom_ribbon(aes(ymin=fit-se, ymax=fit+se, fill = condition), alpha = .2) +
   theme_minimal() +
   labs(title = "Projection of agreeableness predicted by condition",
-       subtitle = "Contrast between politics and weed is significant",
+       subtitle = "Contrast between politics and race is significant",
        x = "Agreeableness for self",
        y = "Agreeableness ratings for target")
 ```
@@ -383,6 +386,7 @@ model2_agree<- lmer(targ ~ self_c*ident_c*perceived_polar_c + (self_c|sub_id),
 tab_model(model2_agree,
           title = "Model 2 for agreeableness only with random slopes")
 ```
+Model is singular.
 
 ```{r agreeable perceived polar plot set-up}
 #getting data for the plot
@@ -497,6 +501,7 @@ consc_randomslopes <- lmer(targ ~ self_c*ident_c*condition + (self_c|sub_id), da
 tab_model(consc_randomslopes ,
           title = "Conscientiousness with random slopes and helmert contrasts")
 ```
+Model is singular.
 
 #### Plot of projection by condition for conscientiousness
 
@@ -529,6 +534,7 @@ model2_consc<- lmer(targ ~ self_c*ident_c*perceived_polar_c + (self_c|sub_id),
 tab_model(model2_consc,
           title = "Model 2 for conscientiousness only with random slopes")
 ```
+Model is singular.
 
 ```{r consc perceived pol plot set-up}
 # getting the data for the plot
@@ -795,6 +801,8 @@ tab_model(open_randomslopes,
           title = "Open mindedness with random slopes and helmert contrasts")
 
 ```
+Model is singular.
+
 #### Plot of projection by condition for openness
 
 ```{r opennes plot by cond}
@@ -819,6 +827,8 @@ model2_open_sum <- summary(model2_open)
 tab_model(model2_open,
           title = "Model 2 for openess only with random slopes")
 ```
+Model is singular.
+
 ```{r}
 open_plot_3way <- ggeffects::ggpredict(model2_open, terms = c("self_c", "ident_c", "perceived_polar_c"))
 
@@ -917,6 +927,7 @@ honest_randomslopes <- lmer(targ ~ self_c*ident_c*condition + (self_c|sub_id),
 tab_model(honest_randomslopes,
           title = "Open mindedness with random slopes and helmert codes")
 ```
+Model is singular and fialed to converge.
 
 #### Plot of projection by condition for honesty
 
