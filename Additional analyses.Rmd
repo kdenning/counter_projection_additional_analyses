@@ -1738,13 +1738,172 @@ summary(discuss_indiv)
 
 ## How contentious do you think a conversation about your political views would be with this person?
 
-```{r contentious output}
+### Overall model
+
+```{r contentious overall output}
 content_overall <- lm(Contentious ~ proj_diff*stereo_diff*inoutgroup_effects*ident_c, downstream_analysis)
 summary(content_overall)
+```
 
+### Overall plots
+
+```{r content overall main effect}
+#main effect of projection
+ggplot(downstream_analysis, aes(proj_diff, Contentious)) +
+  geom_smooth(method = "lm") +
+  theme_minimal() +
+  labs(title = "Contentiousness predicted by projection of morals",
+       subtitle = "Projection is the absolute value of the difference score \nbetween average MFQ scores for target and self",
+       x = "Projection (Higher numbers indicate lower projection)",
+       y = "Contentousness")
+```
+
+As counter projection increases, predicted contentiousness with the target while have a conversation increases.
+
+```{r content overall interaction group}
+content_overall_2way_group <- effect(term = "proj_diff:inoutgroup_effects", 
+                           xlevels = list(inoutgroup_effects = c(-.5,.5)), 
+                           mod = content_overall)
+
+content_overall_2way_group <- as.data.frame(content_overall_2way_group)
+
+content_overall_2way_group$group <- as.factor(content_overall_2way_group$inoutgroup_effects)
+
+ggplot(content_overall_2way_group, aes(proj_diff, fit, group = group, color = group)) +
+ geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black", 
+              aes(linetype = group)) +
+  theme_minimal() +
+  scale_linetype_manual("Group", breaks = c(-.5, .5), 
+                       labels = c("Out-group", "In-group"),
+                       values = c("solid", 
+                                   "dashed")) +
+  labs(title = "Contentiousness with target predicted by projection and target group",
+       subtitle = "Projection is the absolute value of the difference score between average \nMFQ scores for target and self. Higher scores = greater counter projection.",
+       x = "Projection (Higher = more counter projection)",
+       y = "Contentiousness")
+```
+
+Predicted contentiousness with a target starts higher for those considering an out-group target instead of an in-group target and increases gradually as counter projection increases. However, predicted contentiousness increases more quickly as counter projection increases for those considering an in-group target.
+
+```{r content 2way identification}
+content_overall_2way_ident <- effect(term = "proj_diff:ident_c", 
+                           xlevels = list(ident_c = c(-1.78, 0, 1.78)), 
+                           mod = content_overall)
+
+content_overall_2way_ident <- as.data.frame(content_overall_2way_ident)
+
+content_overall_2way_ident$Identification <- as.factor(content_overall_2way_ident$ident_c)
+
+ggplot(content_overall_2way_ident, aes(proj_diff, fit, group = Identification, color = Identification)) +
+ geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black", 
+              aes(linetype = Identification)) +
+  theme_minimal() +
+  scale_linetype_manual("Identification", breaks = c(-1.78, 0, 1.78), 
+                       labels = c("Weak (1 SD below)",
+                                  "Average",
+                                  "High (1 SD above)"),
+                       values = c("solid", 
+                                  "dashed",
+                                  "dotted")) +
+  labs(title = "Contentiousness predicted by projection and identification",
+       subtitle = "Projection is the absolute value of the difference score between average \nMFQ scores for target and self. Higher scores = greater counter projection.",
+       x = "Projection (Higher = more counter projection)",
+       y = "Contentiousness")
+
+```
+
+Predicted contentiousness starts higher for those who are highly identified with their in-group and increases the most as counter projection increases. On the other hand, contentiousness starts the lowest for those who are weakly identified with their in-group and increases the least as counter projection increases.
+
+```{r content 3way}
+content_overall_3way <- effect(term = "proj_diff:inoutgroup_effects:ident_c", 
+                           xlevels = list(ident_c = c(-1.78, 0, 1.78), 
+                                         inoutgroup_effects = c(-.5,.5)), 
+                           mod = content_overall)
+
+content_overall_3way <- as.data.frame(content_overall_3way)
+
+content_overall_3way$Group <- as.factor(content_overall_3way$inoutgroup_effects)
+content_overall_3way$Identification <- as.factor(content_overall_3way$ident_c)
+
+ident_label <- c("-1.78" = "Low identification \n (1 SD below)", 
+                 "0" = "Average identification",
+                 "1.78" = "High identificatiion \n(1 SD above)")
+
+
+#three-way interaction
+ggplot(content_overall_3way, aes(proj_diff,
+                             fit, 
+                             group = Group,
+                             color = Group)) +
+  geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black", 
+              aes(linetype = Group)) +
+  facet_wrap(~Identification, labeller = 
+               labeller(Identification = ident_label)) +
+  scale_linetype_manual("Group", breaks = c(-.5, .5), 
+                       labels = c("Out-group", "In-group"),
+                       values = c("solid", 
+                                   "dashed")) +
+  theme_minimal() +
+  labs(title = "Contentiousness predicted by projection of morals, \nin-group identification and group membership",
+       subtitle = "Controlling for stereotyping",
+       x = "Projection difference scores (higher = more counter projection)",
+       y = "Contentiousness")
+```
+
+For those considering an out-group target, their predicted contentiousness starts higher than those considering an out-group target. As in-group identification increases, counter projection as less of an impact on predicted contentiousness with those considering out-group targets. Specifically, when weakly identified, as counter projection increases, predicted contentiousness also increases. However, when highly identified, predicted contentiousness stays the same as counter projection increases. 
+
+For those considering an in-group target, predicted contentiousness increases as counter projection increases, but more so for those who are highly identified with their in-group, followed by average identifiers, with low identifiers only showing a slight increase as counter projection increases. Interestingly, for those who are highly identified, when counter projection is high, people report higher contentiousness with the in-group target than they would with their out-group target. 
+
+### Binding model
+
+```{r contentious bind output}
 content_bind <- lm(Contentious ~ proj_bind_diff*stereo_bind_diff*ident_c*inoutgroup_effects, mfq_binding_diff)
 summary(content_bind)
+```
 
+### Binding plots
+
+```{r content bind main effect}
+#main effect of projection
+ggplot(mfq_binding_diff, aes(proj_bind_diff, Contentious)) +
+  geom_smooth(method = "lm") +
+  theme_minimal() +
+  labs(title = "Contentiousness predicted by projection of binding morals",
+       subtitle = "Projection is the absolute value of the difference score \nbetween average MFQ scores for target and self",
+       x = "Projection (Higher numbers indicate lower projection)",
+       y = "Contentousness")
+```
+
+As counter projection increases, predicted contentiousness with the target while have a conversation increases.
+
+```{r content bind interaction group}
+content_bind_2way_group <- effect(term = "proj_bind_diff:inoutgroup_effects", 
+                           xlevels = list(inoutgroup_effects = c(-.5,.5)), 
+                           mod = content_bind)
+
+content_bind_2way_group <- as.data.frame(content_bind_2way_group)
+
+content_bind_2way_group$group <- as.factor(content_bind_2way_group$inoutgroup_effects)
+
+ggplot(content_bind_2way_group, aes(proj_bind_diff, fit, group = group, color = group)) +
+ geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black", 
+              aes(linetype = group)) +
+  theme_minimal() +
+  scale_linetype_manual("Group", breaks = c(-.5, .5), 
+                       labels = c("Out-group", "In-group"),
+                       values = c("solid", 
+                                   "dashed")) +
+  labs(title = "Contentiousness with target predicted by projection of binding morals and target group",
+       subtitle = "Projection is the absolute value of the difference score between average \nMFQ scores for target and self. Higher scores = greater counter projection.",
+       x = "Projection (Higher = more counter projection)",
+       y = "Contentiousness")
+```
+
+Predicted contentiousness was higher for out-group targets than in-group targets and, as counter projection of binding morals increases, contentiousness increases more for out-group targets as well. 
+
+### Individuating model
+
+```{r contentious indiv output}
 content_indiv <- lm(Contentious  ~ proj_indiv_diff*stereo_indiv_diff*ident_c*inoutgroup_effects, mfq_individual_diff)
 summary(content_indiv)
 ```
