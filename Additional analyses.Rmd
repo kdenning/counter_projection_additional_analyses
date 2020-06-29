@@ -2423,6 +2423,62 @@ ggplot(downstream_coeffs_indiv,aes(MFQSelf_c, WilltoDiscuss)) +
 
 The effect was there with the binding data, but is only marginal with the individuating data.
 
+### Contentiousness predicted by coefficients
+
+```{r contentiousness coeffs}
+content_coeffs <- lm(Contentious ~ MFQSelf_c*`MFQSelf_c:inoutgroup_effects`*`MFQSelf_c:ident_c`*`MFQSelf_c:inoutgroup_effects:ident_c`, data = downstream_coeffs)
+summary(content_coeffs)
+
+ggplot(downstream_coeffs,aes(MFQSelf_c, Contentious)) +
+  geom_smooth(method = "lm") +
+  labs(title = "Contentiousness predicted by projection coefficient",
+       subtitle = "Coefficient from initial study controlling for stereotyping",
+       x = "Projection coefficient",
+       y = "Contentiousness") +
+  theme_minimal()
+```
+
+### Contentiousness with difference scores too
+
+```{r content coeff with diff scores}
+content_codiff <- lm(Contentious ~ MFQSelf_c*proj_diff, coeffs_and_diffs)
+summary(content_codiff)
+```
+
+Projection is significant, but the difference score is only marginal.
+
+### Contentiousness with binding data
+
+```{r content coeff binding}
+content_coeff_bind <- lm(Contentious ~ MFQSelf_c*`MFQSelf_c:inoutgroup_effects`*`MFQSelf_c:ident_c`*`MFQSelf_c:inoutgroup_effects:ident_c`, data = downstream_coeffs_bind)
+summary(content_coeff_bind)
+
+ggplot(downstream_coeffs_bind,aes(MFQSelf_c, Contentious)) +
+  geom_smooth(method = "lm") +
+  labs(title = "Contentiousness predicted by projection coefficient",
+       subtitle = "Coefficient from initial study with binding data only controlling for stereotyping",
+       x = "Projection coefficient",
+       y = "Contentiousness") +
+  theme_minimal()
+```
+
+### Willingness with individuating data
+
+```{r content coeff indiv}
+content_coeff_indiv <- lm(Contentious ~ MFQSelf_c*`MFQSelf_c:inoutgroup_effects`*`MFQSelf_c:ident_c`*`MFQSelf_c:inoutgroup_effects:ident_c`, data = downstream_coeffs_indiv)
+summary(content_coeff_indiv)
+
+ggplot(downstream_coeffs_indiv,aes(MFQSelf_c, Contentious)) +
+  geom_smooth(method = "lm") +
+  labs(title = "Contentiousness predicted by projection coefficient",
+       subtitle = "Coefficient from initial study with individuating data only controlling for stereotyping",
+       x = "Projection coefficient",
+       y = "Contentiousness") +
+  theme_minimal()
+```
+
+The models for individuating and binding data don't differ much from the overall model.
+
 # Look at how they respond for in-group to address demand? 
 
 Does this mean looking at whether they are approve or disapprove of the condition in F1 and F2? Could do liberal leaning vs conservative leaning, minus PB and third party
