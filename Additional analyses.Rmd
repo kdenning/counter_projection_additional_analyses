@@ -2255,6 +2255,28 @@ valid_indiv <- lm(Valid  ~ proj_indiv_diff*stereo_indiv_diff*inoutgroup_effects*
 summary(valid_indiv)
 ```
 
+
+# Look at downstream effects with coefficients from lmer model per person
+
+```{r data set-up for coeff downstream analysis}
+#getting the coefficients from initial study with stereotyping
+coefficents <- coef(projmodel_stereo)$subid
+
+DF <- dplyr::mutate(coefficients, id = rownames(coefficents))
+
+subid <- rownames(coefficents)
+
+coefficients <- cbind(id = subid, coefficents)
+
+coefficients <- coefficients %>% mutate(subid = as.numeric(id))
+
+#getting data we need to predict to combine
+tomerge <- downstream_analysis %>% 
+  select(subid, Liking, WilltoDiscuss, Contentious, Treatment, Valid)
+
+downstream_coeffs <- left_join(coefficients, tomerge) %>% select(-id)
+```
+
 # Look at how they respond for in-group to address demand? 
 
 Does this mean looking at whether they are approve or disapprove of the condition in F1 and F2? Could do liberal leaning vs conservative leaning, minus PB and third party
