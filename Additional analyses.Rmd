@@ -399,6 +399,18 @@ These results demonstrate that our significant three-way interaction from before
 
 ## With political affiliation as moderator
 
+```{r n per participant voting group}
+stereo_analysis %>% 
+  select(subid, par_cand) %>% 
+  unique() %>% 
+  group_by(par_cand) %>% 
+  count() %>% 
+  ungroup() %>% 
+  mutate(total = sum(n),
+         percent = (n/total)*100)
+```
+
+
 ```{r stereo analysis by cand}
 is_cand <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c *
                                     inoutgroup_effects * ident_c * par_cand +
