@@ -2462,7 +2462,7 @@ ggplot(downstream_coeffs_bind,aes(MFQSelf_c, Contentious)) +
   theme_minimal()
 ```
 
-### Willingness with individuating data
+### Contentiousness with individuating data
 
 ```{r content coeff indiv}
 content_coeff_indiv <- lm(Contentious ~ MFQSelf_c*`MFQSelf_c:inoutgroup_effects`*`MFQSelf_c:ident_c`*`MFQSelf_c:inoutgroup_effects:ident_c`, data = downstream_coeffs_indiv)
@@ -2478,6 +2478,59 @@ ggplot(downstream_coeffs_indiv,aes(MFQSelf_c, Contentious)) +
 ```
 
 The models for individuating and binding data don't differ much from the overall model.
+
+### Treatment predicted by coefficients
+
+```{r treatment coeffs}
+treat_coeffs <- lm(Treatment ~ MFQSelf_c*`MFQSelf_c:inoutgroup_effects`*`MFQSelf_c:ident_c`*`MFQSelf_c:inoutgroup_effects:ident_c`, data = downstream_coeffs)
+summary(treat_coeffs)
+
+ggplot(downstream_coeffs,aes(MFQSelf_c, Treatment)) +
+  geom_smooth(method = "lm") +
+  labs(title = "Treatment predicted by projection coefficient",
+       subtitle = "Coefficient from initial study controlling for stereotyping",
+       x = "Projection coefficient") +
+  theme_minimal()
+```
+
+### Treatment with difference scores too
+
+```{r treat coeff with diff scores}
+treat_codiff <- lm(Treatment ~ MFQSelf_c*proj_diff, coeffs_and_diffs)
+summary(treat_codiff)
+```
+
+Both have main effects but the interaction is not significant.
+
+### Treatment with binding data
+
+```{r treat coeff binding}
+treat_coeff_bind <- lm(Treatment ~ MFQSelf_c*`MFQSelf_c:inoutgroup_effects`*`MFQSelf_c:ident_c`*`MFQSelf_c:inoutgroup_effects:ident_c`, data = downstream_coeffs_bind)
+summary(treat_coeff_bind)
+
+ggplot(downstream_coeffs_bind,aes(MFQSelf_c, Treatment)) +
+  geom_smooth(method = "lm") +
+  labs(title = "Treatment predicted by projection coefficient",
+       subtitle = "Coefficient from initial study with binding data only controlling for stereotyping",
+       x = "Projection coefficient") +
+  theme_minimal()
+```
+
+### Treatment with individuating data
+
+```{r treat coeff indiv}
+treat_coeff_indiv <- lm(Treatment ~ MFQSelf_c*`MFQSelf_c:inoutgroup_effects`*`MFQSelf_c:ident_c`*`MFQSelf_c:inoutgroup_effects:ident_c`, data = downstream_coeffs_indiv)
+summary(treat_coeff_indiv)
+
+ggplot(downstream_coeffs_indiv,aes(MFQSelf_c, Treatment)) +
+  geom_smooth(method = "lm") +
+  labs(title = "Treatment predicted by projection coefficient",
+       subtitle = "Coefficient from initial study with individuating data only controlling for stereotyping",
+       x = "Projection coefficient") +
+  theme_minimal()
+```
+
+Treatment effects with individuating and binding data look pretty much the same as the overall model.
 
 # Look at how they respond for in-group to address demand? 
 
