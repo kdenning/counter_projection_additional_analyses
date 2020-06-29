@@ -2258,6 +2258,8 @@ summary(valid_indiv)
 
 # Look at downstream effects with coefficients from lmer model per person
 
+## Overall MFQ model
+
 ```{r data set-up for coeff downstream analysis}
 #getting the coefficients from initial study with stereotyping
 coefficents <- coef(projmodel_stereo)$subid
@@ -2274,8 +2276,152 @@ coefficients <- coefficients %>% mutate(subid = as.numeric(id))
 tomerge <- downstream_analysis %>% 
   select(subid, Liking, WilltoDiscuss, Contentious, Treatment, Valid)
 
-downstream_coeffs <- left_join(coefficients, tomerge) %>% select(-id)
+downstream_coeffs <- left_join(coefficients, tomerge) %>% select(-id) %>% unique()
+  
 ```
+
+### Liking
+
+```{r liking coeff}
+liking_coeff <- lm(Liking ~ MFQSelf_c*`MFQSelf_c:inoutgroup_effects`*`MFQSelf_c:ident_c`*`MFQSelf_c:inoutgroup_effects:ident_c`, data = downstream_coeffs)
+
+summary(liking_coeff)
+
+ggplot(downstream_coeffs,aes(MFQSelf_c, Liking)) +
+  geom_smooth(method = "lm") +
+  labs(title = "Liking predicted by projection coefficient",
+       subtitle = "Coefficient from initial study model controlling for stereotyping",
+       x = "Projection coefficient") +
+  theme_minimal()
+```
+
+### Liking including similiarity difference scores
+
+```{r liking coeff with diff scores}
+diffs <- downstream_analysis %>% 
+  select(subid, proj_diff, stereo_diff)
+
+coeffs_and_diffs <- left_join(downstream_coeffs, diffs) %>%  unique()
+
+liking_codiff <- lm(Liking ~ MFQSelf_c*proj_diff, coeffs_and_diffs)
+summary(liking_codiff)
+```
+
+Two main effects but no interaction for liking. By the negative coefficient for the similarity score, we can tell that as dissimilarity increases, liking decreases (like the plot we did for the downstream effects using difference scores before).
+
+### Liking with binding model coefficients
+
+```{r data set-up for coeff downstream analysis for binding}
+#getting the coefficients from initial study with stereotyping
+coeffs_bind <- coef(is_mfqbinding)$subid
+
+subid <- rownames(coeffs_bind)
+
+coeffs_bind <- cbind(id = subid, coeffs_bind)
+
+coeffs_bind <- coeffs_bind %>% mutate(subid = as.numeric(id))
+
+downstream_coeffs_bind <- left_join(coeffs_bind, tomerge) %>% select(-id) %>% unique()
+```
+
+```{r liking coeff binding}
+liking_coeff_bind <- lm(Liking ~ MFQSelf_c*`MFQSelf_c:inoutgroup_effects`*`MFQSelf_c:ident_c`*`MFQSelf_c:inoutgroup_effects:ident_c`, data = downstream_coeffs_bind)
+summary(liking_coeff_bind)
+
+ggplot(downstream_coeffs_bind,aes(MFQSelf_c, Liking)) +
+  geom_smooth(method = "lm") +
+  labs(title = "Liking predicted by projection coefficient",
+       subtitle = "Coefficient from initial study with binding data only controlling for stereotyping",
+       x = "Projection coefficient") +
+  theme_minimal()
+```
+
+This looks pretty much the same as the overall model
+
+### Liking with individuating model coefficients
+
+```{r data set-up for coeff downstream analysis for indiv}
+#getting the coefficients from initial study with stereotyping
+coeffs_indiv <- coef(is_mfqindividual)$subid
+
+subid <- rownames(coeffs_indiv)
+
+coeffs_indiv <- cbind(id = subid, coeffs_indiv)
+
+coeffs_indiv <- coeffs_indiv %>% mutate(subid = as.numeric(id))
+
+downstream_coeffs_indiv <- left_join(coeffs_indiv, tomerge) %>% select(-id) %>% unique() %>%  na.omit()
+```
+
+```{r liking coeff indiv}
+liking_coeff_indiv <- lm(Liking ~ MFQSelf_c*`MFQSelf_c:inoutgroup_effects`*`MFQSelf_c:ident_c`*`MFQSelf_c:inoutgroup_effects:ident_c`, data = downstream_coeffs_indiv)
+summary(liking_coeff_indiv)
+
+ggplot(downstream_coeffs_indiv,aes(MFQSelf_c, Liking)) +
+  geom_smooth(method = "lm") +
+  labs(title = "Liking predicted by projection coefficient",
+       subtitle = "Coefficient from initial study with individuating data only controlling for stereotyping",
+       x = "Projection coefficient") +
+  theme_minimal()
+```
+
+Also pretty much the same as the overall model
+
+### Willingness to have discussion
+
+```{r willtodiscuss coeffs}
+discuss_coeffs <- lm(WilltoDiscuss ~ MFQSelf_c*`MFQSelf_c:inoutgroup_effects`*`MFQSelf_c:ident_c`*`MFQSelf_c:inoutgroup_effects:ident_c`, data = downstream_coeffs)
+summary(discuss_coeffs)
+
+ggplot(downstream_coeffs,aes(MFQSelf_c, WilltoDiscuss)) +
+  geom_smooth(method = "lm") +
+  labs(title = "Willigness to have a conversation predicted by projection coefficient",
+       subtitle = "Coefficient from initial study controlling for stereotyping",
+       x = "Projection coefficient",
+       y = "Willingness") +
+  theme_minimal()
+```
+
+### Willingness with difference scores too
+
+```{r willtodiscuss coeff with diff scores}
+discuss_codiff <- lm(WilltoDiscuss ~ MFQSelf_c*proj_diff, coeffs_and_diffs)
+summary(discuss_codiff)
+```
+
+Still significant after including the similarity scores, which, again, are also significant but the interaction between the two is not.
+
+### Willingness with binding data
+
+```{r discuss coeff binding}
+discuss_coeff_bind <- lm(WilltoDiscuss ~ MFQSelf_c*`MFQSelf_c:inoutgroup_effects`*`MFQSelf_c:ident_c`*`MFQSelf_c:inoutgroup_effects:ident_c`, data = downstream_coeffs_bind)
+summary(discuss_coeff_bind)
+
+ggplot(downstream_coeffs_bind,aes(MFQSelf_c, WilltoDiscuss)) +
+  geom_smooth(method = "lm") +
+  labs(title = "Willingness to have discussion predicted by projection coefficient",
+       subtitle = "Coefficient from initial study with binding data only controlling for stereotyping",
+       x = "Projection coefficient",
+       y = "Willingness") +
+  theme_minimal()
+```
+
+### Willingness with individuating data
+
+```{r discuss coeff indiv}
+discuss_coeff_indiv <- lm(WilltoDiscuss ~ MFQSelf_c*`MFQSelf_c:inoutgroup_effects`*`MFQSelf_c:ident_c`*`MFQSelf_c:inoutgroup_effects:ident_c`, data = downstream_coeffs_indiv)
+summary(discuss_coeff_indiv)
+
+ggplot(downstream_coeffs_indiv,aes(MFQSelf_c, WilltoDiscuss)) +
+  geom_smooth(method = "lm") +
+  labs(title = "Willingness to have discussion predicted by projection coefficient",
+       subtitle = "Coefficient from initial study with individuating data only controlling for stereotyping",
+       x = "Projection coefficient",
+       y = "Willingness") +
+  theme_minimal()
+```
+
+The effect was there with the binding data, but is only marginal with the individuating data.
 
 # Look at how they respond for in-group to address demand? 
 
