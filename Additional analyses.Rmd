@@ -312,8 +312,21 @@ projmodel_stereo <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c *
 #results
 tab_model(projmodel_stereo,
           title = "Projection moderated by stereotyping")
-
 ```
+
+```{r outgroup sig from zero}
+out_only <- stereo_analysis %>% filter(inoutgroup_effects != .5)
+
+projmodel_stereo_out <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c * ident_c +
+                                    (MFQSelf_c|subid), 
+                                 data = out_only)
+
+
+tab_model(projmodel_stereo_out,
+          title = "Projection moderated by stereotyping with out-group data only")
+```
+
+This analysis was run using only data for the out-group, meaning the main effect of MFQSelf_c now represents the effect of projection for out-group targets only. The effect is not significant, meaning, in the plot below, that the out-group effect is not different from 0. 
 
 ```{r three-way stereo set-up}
 initial_study_3way <- effect(term = "MFQSelf_c:inoutgroup_effects:ident_c", 
