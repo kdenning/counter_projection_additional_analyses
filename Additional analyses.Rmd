@@ -2258,13 +2258,9 @@ summary(valid_indiv)
 
 # Look at downstream effects with coefficients from lmer model per person
 
-## Overall MFQ model
-
-```{r data set-up for coeff downstream analysis}
+```{r data set-up for coeff downstream analysis,include = FALSE}
 #getting the coefficients from initial study with stereotyping
 coefficents <- coef(projmodel_stereo)$subid
-
-DF <- dplyr::mutate(coefficients, id = rownames(coefficents))
 
 subid <- rownames(coefficents)
 
@@ -2280,7 +2276,9 @@ downstream_coeffs <- left_join(coefficients, tomerge) %>% select(-id) %>% unique
   
 ```
 
-### Liking
+## Liking
+
+### Overall
 
 ```{r liking coeff}
 liking_coeff <- lm(Liking ~ MFQSelf_c*`MFQSelf_c:inoutgroup_effects`*`MFQSelf_c:ident_c`*`MFQSelf_c:inoutgroup_effects:ident_c`, data = downstream_coeffs)
@@ -2311,7 +2309,7 @@ Two main effects but no interaction for liking. By the negative coefficient for 
 
 ### Liking with binding model coefficients
 
-```{r data set-up for coeff downstream analysis for binding}
+```{r data set-up for coeff downstream analysis for binding, inclue = FALSE}
 #getting the coefficients from initial study with stereotyping
 coeffs_bind <- coef(is_mfqbinding)$subid
 
@@ -2340,7 +2338,7 @@ This looks pretty much the same as the overall model
 
 ### Liking with individuating model coefficients
 
-```{r data set-up for coeff downstream analysis for indiv}
+```{r data set-up for coeff downstream analysis for indiv, include = FALSE}
 #getting the coefficients from initial study with stereotyping
 coeffs_indiv <- coef(is_mfqindividual)$subid
 
@@ -2367,7 +2365,7 @@ ggplot(downstream_coeffs_indiv,aes(MFQSelf_c, Liking)) +
 
 Also pretty much the same as the overall model
 
-### Willingness to have discussion
+## Willingness to have discussion
 
 ```{r willtodiscuss coeffs}
 discuss_coeffs <- lm(WilltoDiscuss ~ MFQSelf_c*`MFQSelf_c:inoutgroup_effects`*`MFQSelf_c:ident_c`*`MFQSelf_c:inoutgroup_effects:ident_c`, data = downstream_coeffs)
@@ -2423,7 +2421,7 @@ ggplot(downstream_coeffs_indiv,aes(MFQSelf_c, WilltoDiscuss)) +
 
 The effect was there with the binding data, but is only marginal with the individuating data.
 
-### Contentiousness predicted by coefficients
+## Contentiousness predicted by coefficients
 
 ```{r contentiousness coeffs}
 content_coeffs <- lm(Contentious ~ MFQSelf_c*`MFQSelf_c:inoutgroup_effects`*`MFQSelf_c:ident_c`*`MFQSelf_c:inoutgroup_effects:ident_c`, data = downstream_coeffs)
@@ -2479,7 +2477,7 @@ ggplot(downstream_coeffs_indiv,aes(MFQSelf_c, Contentious)) +
 
 The models for individuating and binding data don't differ much from the overall model.
 
-### Treatment predicted by coefficients
+## Treatment predicted by coefficients
 
 ```{r treatment coeffs}
 treat_coeffs <- lm(Treatment ~ MFQSelf_c*`MFQSelf_c:inoutgroup_effects`*`MFQSelf_c:ident_c`*`MFQSelf_c:inoutgroup_effects:ident_c`, data = downstream_coeffs)
@@ -2531,6 +2529,62 @@ ggplot(downstream_coeffs_indiv,aes(MFQSelf_c, Treatment)) +
 ```
 
 Treatment effects with individuating and binding data look pretty much the same as the overall model.
+
+## Validity predicted by coefficients
+
+```{r valid coeffs}
+valid_coeffs <- lm(Valid ~ MFQSelf_c*`MFQSelf_c:inoutgroup_effects`*`MFQSelf_c:ident_c`*`MFQSelf_c:inoutgroup_effects:ident_c`, data = downstream_coeffs)
+summary(valid_coeffs)
+
+ggplot(downstream_coeffs,aes(MFQSelf_c, Valid)) +
+  geom_smooth(method = "lm") +
+  labs(title = "Validity of target's position predicted by projection coefficient",
+       subtitle = "Coefficient from initial study controlling for stereotyping",
+       x = "Projection coefficient",
+       y = "Validity") +
+  theme_minimal()
+```
+
+### Validity with difference scores too
+
+```{r valid coeff with diff scores}
+valid_codiff <- lm(Valid ~ MFQSelf_c*proj_diff, coeffs_and_diffs)
+summary(valid_codiff)
+```
+
+Both have main effects but the interaction is not significant.
+
+### Validity with binding data
+
+```{r valid coeff binding}
+valid_coeff_bind <- lm(Valid ~ MFQSelf_c*`MFQSelf_c:inoutgroup_effects`*`MFQSelf_c:ident_c`*`MFQSelf_c:inoutgroup_effects:ident_c`, data = downstream_coeffs_bind)
+summary(valid_coeff_bind)
+
+ggplot(downstream_coeffs_bind,aes(MFQSelf_c, Valid)) +
+  geom_smooth(method = "lm") +
+  labs(title = "Validity predicted by projection coefficient",
+       subtitle = "Coefficient from initial study with binding data only controlling for stereotyping",
+       x = "Projection coefficient",
+       y = "Validity") +
+  theme_minimal()
+```
+
+### Validity with individuating data
+
+```{r valid coeff indiv}
+valid_coeff_indiv <- lm(Valid ~ MFQSelf_c*`MFQSelf_c:inoutgroup_effects`*`MFQSelf_c:ident_c`*`MFQSelf_c:inoutgroup_effects:ident_c`, data = downstream_coeffs_indiv)
+summary(valid_coeff_indiv)
+
+ggplot(downstream_coeffs_indiv,aes(MFQSelf_c, Valid)) +
+  geom_smooth(method = "lm") +
+  labs(title = "Validity predicted by projection coefficient",
+       subtitle = "Coefficient from initial study with individuating data only controlling for stereotyping",
+       x = "Projection coefficient",
+       y = "Validity") +
+  theme_minimal()
+```
+
+Models using the individuating and binding data look the same as the overall model.
 
 # Look at how they respond for in-group to address demand? 
 
