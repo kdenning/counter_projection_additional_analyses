@@ -610,6 +610,51 @@ tab_model(nom_v_id_model,
           title = "Nomothetic/idiographic difference score predicting projection")
 ```
 
+```{r proj by diff int set-up}
+describe(nom_v_id_data$stereo_diff)
+nvi_projxdiff <- effect(term = "MFQSelf_c:stereo_diff", 
+                             xlevels = list(stereo_diff = c(0,1.0,2.0,3.0,4.0)), 
+                             mod = nom_v_id_model)
+
+nvi_projxdiff <- as.data.frame(nvi_projxdiff)
+
+nvi_projxdiff$stereo_diff <- as.factor(nvi_projxdiff$stereo_diff)
+```
+
+```{r proj vy diff int plot}
+ggplot(nvi_projxdiff, aes(MFQSelf_c, 
+                               fit, 
+                               group = stereo_diff, 
+                               color = stereo_diff)) +
+  geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black",
+              aes(linetype = stereo_diff)) +
+  scale_linetype_manual("Stereoype Difference", breaks = c(0,1.0,2.0,3.0,4.0), 
+                       labels = c("None",
+                                  "1.0",
+                                  "2.0",
+                                  "3.0",
+                                  "4.0"),
+                       values = c("solid", 
+                                  "dashed",
+                                  "dotted",
+                                  "F1",
+                                  "1F")) +
+  theme_minimal(base_size = 13) +
+  labs(title = "Projection predicted by stereotype difference score",
+       subtitle = "Difference score operationalized as nomothetic - idiographic ",
+       x = "MFQ responses for self",
+       y = "MFQ responses for target") +
+  theme(legend.text = element_text(size = 10),
+        legend.key.width = unit(1.4, "cm"))
+```
+
+As the stereotype difference increases, people are projecting more. When people's idiographic stereotypes are more similar to the nomethetic stereotype, they project less. Its when people's stereotypes are less like the group stereotype that they use more projection. 
+
+**This still generally supports Ames (2004) model of stereotyping, but lets see if it upholds by group and other moderators.**
+
+```{r proj, stereo diff, targ group, cand interaction set-up}
+
+```
 
 # MFQ sub areas
 
