@@ -708,7 +708,7 @@ nvi_projxdiffxident <- effect(term = "MFQSelf_c:stereo_diff:ident_c",
 nvi_projxdiffxident <- as.data.frame(nvi_projxdiffxident)
 
 nvi_projxdiffxident$stereo_diff <- as.factor(nvi_projxdiffxident$stereo_diff)
-nvi_projxdiffxident$ident_c <- as.factor(nvi_projxdiffxident$ident_c)
+nvi_projxdiffxident$Identification <- as.factor(nvi_projxdiffxident$ident_c)
 
 ident_label <- c("-1.78" = "Low identification \n (1 SD below)", 
                  "0.0" = "Average identification",
@@ -722,7 +722,8 @@ ggplot(nvi_projxdiffxident, aes(MFQSelf_c,
                                color = stereo_diff)) +
   geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black",
               aes(linetype = stereo_diff)) +
-  facet_wrap(~ident_c, labeller = labeller(ident_C = ident_label)) +
+  facet_wrap(~Identification, labeller = 
+               labeller(Identification = ident_label)) +
   scale_linetype_manual("Stereoype \nDifference", breaks = c(0,1.0,2.0,3.0,4.0), 
                        labels = c("None",
                                   "1.0",
