@@ -610,8 +610,9 @@ tab_model(nom_v_id_model,
           title = "Nomothetic/idiographic difference score predicting projection")
 ```
 
+## Plots
+
 ```{r proj by diff int set-up}
-describe(nom_v_id_data$stereo_diff)
 nvi_projxdiff <- effect(term = "MFQSelf_c:stereo_diff", 
                              xlevels = list(stereo_diff = c(0,1.0,2.0,3.0,4.0)), 
                              mod = nom_v_id_model)
@@ -652,9 +653,101 @@ As the stereotype difference increases, people are projecting more. When people'
 
 **This still generally supports Ames (2004) model of stereotyping, but lets see if it upholds by group and other moderators.**
 
-```{r proj, stereo diff, targ group, cand interaction set-up}
+```{r proj x diff x group set-up}
+nvi_projxdiffxgroup <- effect(term = "MFQSelf_c:stereo_diff:inoutgroup_effects", 
+                             xlevels = list(stereo_diff = c(0,1.0,2.0,3.0,4.0),
+                                            inoutgroup_effects = c(-0.5, 0.5)), 
+                             mod = nom_v_id_model)
 
+nvi_projxdiffxgroup<- as.data.frame(nvi_projxdiffxgroup)
+
+nvi_projxdiffxgroup$stereo_diff <- as.factor(nvi_projxdiffxgroup$stereo_diff)
+nvi_projxdiffxgroup$group <- as.factor(nvi_projxdiffxgroup$inoutgroup_effects)
+
+group_label = c("-0.5" = "Out-group",
+                "0.5" = "In-group")
 ```
+
+
+```{r proj x diff x group int plot}
+ggplot(nvi_projxdiffxgroup, aes(MFQSelf_c, 
+                               fit, 
+                               group = stereo_diff, 
+                               color = stereo_diff)) +
+  geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black",
+              aes(linetype = stereo_diff)) +
+  facet_wrap(~group, labeller = labeller(group = group_label)) +
+  scale_linetype_manual("Stereoype \nDifference", breaks = c(0,1.0,2.0,3.0,4.0), 
+                       labels = c("None",
+                                  "1.0",
+                                  "2.0",
+                                  "3.0",
+                                  "4.0"),
+                       values = c("solid", 
+                                  "dashed",
+                                  "dotted",
+                                  "F1",
+                                  "1F")) +
+  theme_minimal(base_size = 13) +
+  labs(title = "Projection predicted by stereotype difference score and target group",
+       subtitle = "Difference score operationalized as nomothetic - idiographic ",
+       x = "MFQ responses for self",
+       y = "MFQ responses for target") +
+  theme(legend.text = element_text(size = 10),
+        legend.key.width = unit(1.4, "cm"))
+```
+
+When people in the out-group condition's individual stereotypes become more like the group (less difference), they counter project more. People in the out-group condition project normally regardless of how much their in-group stereotypes are like that of the group.
+
+```{r proj, stereo diff, ident set-up}
+nvi_projxdiffxident <- effect(term = "MFQSelf_c:stereo_diff:ident_c", 
+                             xlevels = list(stereo_diff = c(0,1.0,2.0,3.0,4.0),
+                                            ident_c = c(-1.78, 0.0, 1.78)), 
+                             mod = nom_v_id_model)
+
+nvi_projxdiffxident <- as.data.frame(nvi_projxdiffxident)
+
+nvi_projxdiffxident$stereo_diff <- as.factor(nvi_projxdiffxident$stereo_diff)
+nvi_projxdiffxident$ident_c <- as.factor(nvi_projxdiffxident$ident_c)
+
+ident_label <- c("-1.78" = "Low identification \n (1 SD below)", 
+                 "0.0" = "Average identification",
+                 "1.78" = "High identificatiion \n (1 SD above)")
+```
+
+```{r proj x diff x ident int plot}
+ggplot(nvi_projxdiffxident, aes(MFQSelf_c, 
+                               fit, 
+                               group = stereo_diff, 
+                               color = stereo_diff)) +
+  geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black",
+              aes(linetype = stereo_diff)) +
+  facet_wrap(~ident_c, labeller = labeller(ident_C = ident_label)) +
+  scale_linetype_manual("Stereoype \nDifference", breaks = c(0,1.0,2.0,3.0,4.0), 
+                       labels = c("None",
+                                  "1.0",
+                                  "2.0",
+                                  "3.0",
+                                  "4.0"),
+                       values = c("solid", 
+                                  "dashed",
+                                  "dotted",
+                                  "F1",
+                                  "1F")) +
+  theme_minimal(base_size = 13) +
+  labs(title = "Projection predicted by stereotype difference score and identification",
+       subtitle = "Difference score operationalized as nomothetic - idiographic ",
+       x = "MFQ responses for self",
+       y = "MFQ responses for target") +
+  theme(legend.text = element_text(size = 10),
+        legend.key.width = unit(1.4, "cm"))
+```
+
+Not sure why labeller decided to stop working... need to figure this out!!!
+
+As in-group identification increases, people whose individual stereotypes are the same as their group stereotype project less. Interestingly, those who show even a slight difference between stereotypes, continue to project the same amount across in-group identification. Moreover, people whose stereotypes are 2 or more different from the group stereotype start projecting *more* as in-group identification increase.
+
+
 
 # MFQ sub areas
 
