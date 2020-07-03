@@ -191,7 +191,7 @@ stereo_analysis <- clean_data2 %>%
   na.omit()
 ```
 
-# Stereotype moderator analysis: Initial Study
+# Stereotype moderator analysis
 
 ```{r stereo analysis}
 #model
@@ -203,70 +203,6 @@ projmodel_stereo <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c *
 #results
 tab_model(projmodel_stereo,
           title = "Projection moderated by stereotyping")
-```
-
-## Looking at subgroups of target group
-
-```{r outgroup sig from zero}
-out_only <- stereo_analysis %>% filter(inoutgroup_effects != .5)
-
-projmodel_stereo_out <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c * ident_c +
-                                    (MFQSelf_c|subid), 
-                                 data = out_only)
-
-
-tab_model(projmodel_stereo_out,
-          title = "Projection moderated by stereotyping with out-group data only")
-```
-
-This analysis was run using only data for the out-group, meaning the main effect of MFQSelf_c now represents the effect of projection for out-group targets only. The effect is not significant, meaning, in the plot with the whole data looking at the main effect of target group, that the out-group effect is not different from 0. 
-
-```{r ingroup sig from zero}
-in_only <- stereo_analysis %>% filter(inoutgroup_effects == .5)
-
-projmodel_stereo_in <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c * ident_c +
-                                    (MFQSelf_c|subid), 
-                                 data = in_only)
-
-
-tab_model(projmodel_stereo_in,
-          title = "Projection moderated by stereotyping with in-group data only")
-```
-
-## Looking at subsets of candidate support
-
-```{r Clinton only sig from zero}
-clinton_only <- stereo_analysis %>% filter(par_cand == "Clinton")
-
-projmodel_stereo_clinton <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c * ident_c +
-                                    (MFQSelf_c|subid), 
-                                 data = clinton_only)
-
-
-tab_model(projmodel_stereo_clinton,
-          title = "Projection moderated by stereotyping with Clinton supporter data only")
-```
-
-```{r Trump only sig from zero}
-trump_only <- stereo_analysis %>% filter(par_cand == "Trump")
-
-projmodel_stereo_trump <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c * ident_c +
-                                    (MFQSelf_c|subid), 
-                                 data = trump_only)
-
-
-tab_model(projmodel_stereo_trump,
-          title = "Projection moderated by stereotyping with Trump supporter data only")
-```
-
-```{r int proj, stereo set-up}
-proj_stereo_only <- effect(term = "MFQSelf_c:MFQStereo_c", 
-                           xlevels = list(MFQStereo_c = c(-1.35, 0, 1.35)), 
-                           mod = projmodel_stereo)
-
-proj_stereo_only <- as.data.frame(proj_stereo_only)
-
-proj_stereo_only$Stereotyping <- as.factor(proj_stereo_only$MFQStereo_c)
 ```
 
 ## Plots for overall model
@@ -393,8 +329,71 @@ ggplot(initial_study_main_group, aes(MFQSelf_c,
 
 These results demonstrate that our significant three-way interaction from before is no longer significant, but the main effect of group identification still is significant and still shows counter projection. The three-way is not significant because, regardless of in-group identification, people are still counter projecting to the same extent with their out-group and projecting normally with their in-group.
 
+## Looking at subgroups of target group
 
-## With political affiliation as moderator
+```{r outgroup sig from zero}
+out_only <- stereo_analysis %>% filter(inoutgroup_effects != .5)
+
+projmodel_stereo_out <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c * ident_c +
+                                    (MFQSelf_c|subid), 
+                                 data = out_only)
+
+
+tab_model(projmodel_stereo_out,
+          title = "Projection moderated by stereotyping with out-group data only")
+```
+
+This analysis was run using only data for the out-group, meaning the main effect of MFQSelf_c now represents the effect of projection for out-group targets only. The effect is not significant, meaning, in the plot with the whole data looking at the main effect of target group (above), that the out-group effect is not different from 0. 
+
+```{r ingroup sig from zero}
+in_only <- stereo_analysis %>% filter(inoutgroup_effects == .5)
+
+projmodel_stereo_in <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c * ident_c +
+                                    (MFQSelf_c|subid), 
+                                 data = in_only)
+
+
+tab_model(projmodel_stereo_in,
+          title = "Projection moderated by stereotyping with in-group data only")
+```
+
+## Looking at subsets of candidate support
+
+```{r Clinton only sig from zero}
+clinton_only <- stereo_analysis %>% filter(par_cand == "Clinton")
+
+projmodel_stereo_clinton <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c * ident_c +
+                                    (MFQSelf_c|subid), 
+                                 data = clinton_only)
+
+
+tab_model(projmodel_stereo_clinton,
+          title = "Projection moderated by stereotyping with Clinton supporter data only")
+```
+
+```{r Trump only sig from zero}
+trump_only <- stereo_analysis %>% filter(par_cand == "Trump")
+
+projmodel_stereo_trump <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c * ident_c +
+                                    (MFQSelf_c|subid), 
+                                 data = trump_only)
+
+
+tab_model(projmodel_stereo_trump,
+          title = "Projection moderated by stereotyping with Trump supporter data only")
+```
+
+```{r int proj, stereo set-up}
+proj_stereo_only <- effect(term = "MFQSelf_c:MFQStereo_c", 
+                           xlevels = list(MFQStereo_c = c(-1.35, 0, 1.35)), 
+                           mod = projmodel_stereo)
+
+proj_stereo_only <- as.data.frame(proj_stereo_only)
+
+proj_stereo_only$Stereotyping <- as.factor(proj_stereo_only$MFQStereo_c)
+```
+
+# Stereotyping moderator analysis adding participant political affiliation
 
 ```{r n per participant voting group}
 stereo_analysis %>% 
@@ -422,6 +421,7 @@ tab_model(is_cand,
 
 When we include who the participant voted for with stereotyping as well, we still have the main effect from above. Now, the interaction between target group and in-group identification is significant. There is also an interaction between target group (in or out) and who the participant voted for. However, an interaction between target group, degree of in-group identification, and who they voted for is not significant. There are other significant interactions including stereotyping, but, since we only included it as a moderator to see if the relationship persisted, I didn't go through them thoroughly.
 
+## Plots
 
 ```{r is group by cand set-up}
 is_group_cand <- effect(term = "MFQSelf_c:inoutgroup_effects:par_cand", 
@@ -591,6 +591,25 @@ ggplot(trump_5way, aes(MFQSelf_c,
        y = "MFQ responses for target")
 ```
 
+# Analysis w/ difference score between nomothetic and idiographic stereotyping
+
+```{r getting nomothetic stereotypes}
+nom_v_id_data <- stereo_analysis %>% 
+  group_by(MFQ_Number, par_cand, inoutgroup_effects) %>% 
+  mutate(stereo_nomothetic = mean(MFQStereo)) %>% 
+  ungroup() %>% 
+  group_by(subid) %>% 
+  mutate(stereo_diff = abs(MFQStereo - stereo_nomothetic))
+
+nom_v_id_model <- lmer(MFQTarg ~ MFQSelf_c * stereo_diff *
+                                    inoutgroup_effects * ident_c * par_cand +
+                                    (MFQSelf_c|subid), 
+                                 data = nom_v_id_data)
+
+tab_model(nom_v_id_model,
+          title = "Nomothetic/idiographic difference score predicting projection")
+```
+
 
 # MFQ sub areas
 
@@ -611,9 +630,7 @@ mfq_individual <- clean_data2 %>%
   na.omit()
 ```
 
-## Initial Study
-
-### Binding
+## Binding
 
 ```{r mfq binding model}
 #model
@@ -691,7 +708,7 @@ ggplot(is_binding_group, aes(MFQSelf_c,
        y = "MFQ responses for target")
 ```
 
-### Binding including participant vote
+## Binding including participant vote
 
 ```{r mfq binding model cand}
 is_mfqbinding_cand <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c *
@@ -737,7 +754,7 @@ ggplot(bind_group_cand, aes(MFQSelf_c,
        y = "MFQ responses for target")
 ``` 
 
-### Individualizing
+## Individualizing
 
 ```{r mfq individual model}
 is_mfqindividual <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c *
@@ -821,7 +838,7 @@ ggplot(is_indiv_group, aes(MFQSelf_c,
        y = "MFQ responses for target")
 ```
 
-### Individualizing including participant vote
+## Individualizing including participant vote
 
 ```{r mfq individual model cand}
 #model
@@ -869,7 +886,7 @@ ggplot(is_indiv_group_cand, aes(MFQSelf_c,
 
 # Demographic differences in counter projection
 
-## Initial Study - Race
+## Race
 
 ```{r stereo analysis with race}
 dem_analysis <- clean_data2 %>% 
@@ -891,7 +908,7 @@ tab_model(projmodel_stereo_race,
 Model is rank deficient, not enough power to check if results differ by race. Could possibly do white vs minorities, but that doesn't feel telling enough.
 
 
-## Initial Study - Gender
+## Gender
 
 ```{r stereo analysis with gender}
 gender_analysis <- clean_data2 %>% 
@@ -911,4 +928,5 @@ tab_model(projmodel_stereo_gender,
 
 
 Gender does not moderate the results.
+
 
