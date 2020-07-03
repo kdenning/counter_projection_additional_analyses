@@ -207,26 +207,6 @@ tab_model(projmodel_stereo,
 
 ## Plots for overall model
 
-```{r proj stereo ident plot}
-ggplot(proj_stereo_only, aes(MFQSelf_c, 
-                             fit, 
-                             group = Stereotyping, 
-                             color = Stereotyping)) +
-  geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black", 
-              aes(linetype = Stereotyping)) +
-  scale_linetype_manual("Stereotyping", breaks = c(-1.35, 0, 1.35), 
-                       labels = c("Low (1 SD below)", 
-                                  "Average",
-                                  "High (1 SD above)"),
-                       values = c("solid", 
-                                   "dashed",
-                                  "dotted")) +
-  theme_minimal() +
-  labs(title = "Projection predicted by stereotyping",
-       x = "MFQ responses for self",
-       y = "MFQ responses for target")
-```
-
 ```{r int proj, stereo, and ident set-up}
 proj_stereo_effects <- effect(term = "MFQSelf_c:MFQStereo_c:ident_c", 
                            xlevels = list(ident_c = c(-1.78, 0, 1.78), 
@@ -744,11 +724,60 @@ ggplot(nvi_projxdiffxident, aes(MFQSelf_c,
         legend.key.width = unit(1.4, "cm"))
 ```
 
-Not sure why labeller decided to stop working... need to figure this out!!!
 
 As in-group identification increases, people whose individual stereotypes are the same as their group stereotype project less. Interestingly, those who show even a slight difference between stereotypes, continue to project the same amount across in-group identification. Moreover, people whose stereotypes are 2 or more different from the group stereotype start projecting *more* as in-group identification increase.
 
 
+```{r proj x diff x group x cand set-up}
+nvi_projxdiffxgroupxcand <- effect(term = 
+                                "MFQSelf_c:stereo_diff:inoutgroup_effects:par_cand", 
+                             xlevels = list(stereo_diff = c(0,1.0,2.0,3.0,4.0),
+                                            inoutgroup_effects = c(-0.5, 0.5),
+                                            par_cand = c("Clinton", "Trump")), 
+                             mod = nom_v_id_model)
+
+nvi_projxdiffxgroupxcand<- as.data.frame(nvi_projxdiffxgroupxcand)
+
+nvi_projxdiffxgroupxcand$stereo_diff <- as.factor(nvi_projxdiffxgroupxcand$stereo_diff)
+nvi_projxdiffxgroupxcand$group <- as.factor(nvi_projxdiffxgroupxcand$inoutgroup_effects)
+nvi_projxdiffxgroupxcand$cand <- as.factor(nvi_projxdiffxgroupxcand$par_cand)
+```
+
+
+```{r proj x diff x group x cand int plot}
+ggplot(nvi_projxdiffxgroupxcand, aes(MFQSelf_c, 
+                               fit, 
+                               group = stereo_diff, 
+                               color = stereo_diff)) +
+  geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black",
+              aes(linetype = stereo_diff)) +
+  facet_grid(group~cand, labeller = labeller(group = group_label)) +
+  scale_linetype_manual("Stereoype \nDifference", breaks = c(0,1.0,2.0,3.0,4.0), 
+                       labels = c("None",
+                                  "1.0",
+                                  "2.0",
+                                  "3.0",
+                                  "4.0"),
+                       values = c("solid", 
+                                  "dashed",
+                                  "dotted",
+                                  "F1",
+                                  "1F")) +
+  theme_minimal(base_size = 13) +
+  labs(title = "Projection predicted by stereotype difference score, \ntarget group, and voter preference",
+       subtitle = "Difference score operationalized as nomothetic - idiographic ",
+       x = "MFQ responses for self",
+       y = "MFQ responses for target") +
+  theme(legend.text = element_text(size = 10),
+        legend.key.width = unit(1.4, "cm"))
+```
+
+
+Clinton supporters in the out-group condition are the only group to show counter projection. People whose individual stereotypes are more similiar to the group stereotype (either the same or only 1 point of difference), counter project. Out-group Clinton supporters who are 2 points different from the group on stereotypes do not project at all, and those whose stereotypes are very different from the group stereotype continue to project normally onto their out-group.
+
+Trump supporters in the out-group condition whose individual stereotypes are the same as the group stereotype do not project. As the difference between their idiographic and nomothetic stereotypes increases, Trump supporters project more with thier out-group. 
+
+Both groups continue to project with their in-group regardless of stereotype difference.
 
 # MFQ sub areas
 
