@@ -1,0 +1,643 @@
+---
+title: "Counter Projection - Additional Analyses"
+author: "Kathryn Denning"
+date: "6/18/2020"
+output: 
+  html_document:
+    code_folding: "hide"
+    toc: true
+    toc_float: true
+    dev: png
+  pdf_document:
+    dev: cairo_pdf
+    latex_engine: xelatex
+editor_options: 
+  chunk_output_type: console
+---
+```{r set-up, include = FALSE}
+#loading packages
+library(foreign)
+library(reshape2)
+library(tidyverse)
+library(dplyr)
+library(car)
+library(haven)
+library(psych)
+library(lmerTest)
+library(sjPlot)
+library(reshape2)
+library(data.table)
+library(emmeans)
+library(effects)
+library(Cairo)
+library(tinytex)
+library(rio)
+
+#making it round to three decimal places
+options(scipen = 999)
+knitr::opts_chunk$set(echo = TRUE,
+                      message = FALSE,
+                      warning = FALSE)
+
+knitr::opts_knit$set(dev.args = list(type = "cairo"))
+
+trace(grDevices:::png, quote({
+  if (missing(type) && missing(antialias)) {
+    type <- "cairo-png"
+    antialias <- "subpixel"
+  }
+}), print = FALSE)
+```
+
+```{r data import and cleaning F1, include = FALSE}
+#Reading in the data
+pptnpf1 <- read.csv("PPTNPF1_clean_nopt.csv", header = TRUE) 
+
+correct_mfq <- pptnpf1 %>% 
+  select(-MFQ_Self_Check1, -MFQ_Self_Check2, -MFQ_Targ_Check1, -MFQ_Targ_Check2)
+
+#Getting the data in long-format
+pptnpf1_comb <-  correct_mfq %>% 
+  dplyr::select(Subject, Condition, Gender, Race, Age, Issue_agreement, 
+                Identification, ManCheck, 
+                MFQSelf.=MFQ_Self_1:MFQ_Self_23, 
+                MFQTarg.=MFQ_Targ_1:MFQ_Targ_23) %>% 
+  gather(MFQType, MFQResponse, MFQSelf.1:MFQTarg.20, factor_key = TRUE) %>% 
+  separate(.,MFQType,c("MFQ","number"),"\\.") %>% 
+  spread(.,MFQ, MFQResponse) %>% 
+  mutate_each(.,funs(as.numeric(as.character(.)))) %>% 
+  group_by(Subject)
+
+
+
+#Making each value the right type (numeric or factor) and centered
+pptnpf1_comb$MFQSelf_c <- as.numeric(pptnpf1_comb$MFQSelf - 
+                                       mean(pptnpf1_comb$MFQSelf, na.rm = TRUE))
+pptnpf1_comb$Identification_c <- as.numeric(pptnpf1_comb$Identification - 
+                                              mean(pptnpf1_comb$Identification, 
+                                                   na.rm = TRUE))
+pptnpf1_comb$Condition <- as.factor(pptnpf1_comb$Condition)
+pptnpf1_comb$Gender <- as.factor(pptnpf1_comb$Gender)
+pptnpf1_comb$Race <- as.factor(pptnpf1_comb$Race)
+pptnpf1_comb$Age <- as.numeric(pptnpf1_comb$Age)
+pptnpf1_comb <- na.omit(pptnpf1_comb)
+
+#Adding contrast codes for our categorical variable
+PRWvPB <- c(1, -1, -1, 3) 
+PRvW <- c(-1, -1, 2, 0)  
+PvR <- c(-1, 1, 0, 0) 
+ConCodes <- cbind(PRWvPB, PRvW, PvR)
+contrasts(pptnpf1_comb$Condition) <- ConCodes
+contrasts(pptnpf1_comb$Condition)
+```
+
+```{r data import and cleaning F2, include = FALSE}
+
+# Data after manually removing participants who did not correctly complete the PT manipulation
+npf2_wide <- import("npf2_wide_ptclean2 copy.xlsx") 
+
+# Dropping second row that had full questions and overwriting because don't want that for analyses
+npf2_wide <- npf2_wide[-c(1),, drop = F] 
+
+npf2_wide[,1:30] <- sapply(npf2_wide[,1:30],as.factor)
+npf2_wide[,32:35] <- sapply(npf2_wide[,32:35],as.numeric)
+npf2_wide[,37:40] <- sapply(npf2_wide[,37:40],as.numeric)
+npf2_wide[,42:45] <- sapply(npf2_wide[,42:45],as.numeric)
+npf2_wide[,47:66] <- sapply(npf2_wide[,47:66],as.numeric)
+
+# Reverse coding
+npf2_wide_recode <- npf2_wide %>% 
+     mutate_at(c("bfi2xsh_self_quiet", "bfi2xsh_self_rude", 
+                 "bfi2xsh_self_disorg", "bfi2xsh_self_taskdiff",
+                 "bfi2xsh_self_stable", "bfi2xsh_self_abstract",
+                 "bfi2xsh_self_risk", "bfi2xsh_self_uses",
+                 "bfi2xsh_targ_quiet", "bfi2xsh_targ_rude",
+                 "bfi2xsh_targ_rude", "bfi2xsh_targ_disorg",
+                 "bfi2xsh_targ_taskdiff", "bfi2xsh_targ_stable",
+                 "bfi2xsh_targ_abstract", "bfi2xsh_targ_risk",
+                 "bfi2xsh_targ_uses"), 
+               list(~dplyr::recode(., `1`= 5, `2`= 4, `3` = 3, `4` = 2, `5` = 1)))
+
+# Cleaning and putting data in long-format
+npf2_clean <- npf2_wide_recode %>% 
+  # Dropping open-ended questions
+  select(-c(pt_narr_pol, pt_narr_race, pt_narr_thirdpart, pt_narr_weed)) %>% 
+  # Making all character variables numeric
+  mutate_if(is.character,as.numeric) %>% 
+  # Putting responses for personality items into long format for participant and target
+  pivot_longer(c(bfi2xsh_self_quiet:bfi2xsh_self_rules, 
+           bfi2xsh_targ_quiet:bfi2xsh_targ_rules),
+           names_sep = "_",
+           names_to = c("drop1", "bfi2xsh_type", "bfi2xsh_qtype")) %>% 
+  pivot_wider(names_from = bfi2xsh_type, values_from = value) %>% 
+  # Putting responses on other items (conditon, identification, liberal and conservative ratings) into long-format
+  pivot_longer(c(opin_pol:check_thirdpart),
+               names_sep = "_",
+               names_to = c("question", "condition")) %>% 
+  na.omit() %>% 
+  pivot_wider(names_from = question, values_from = value) %>% 
+  select(-drop1) %>% 
+  # Making a varriable for perceived polarization, making condition a factor variable
+  mutate(perceived_polar = abs(lib-cons),
+         condition = fct_relevel(condition, 
+                                 "pol", 
+                                 "race", 
+                                 "weed", 
+                                 "thirdpart")) %>% 
+  # Mean centering continuous predictors
+  mutate(self_c = self - mean(self, na.rm = TRUE),
+         ident_c = ident - mean(ident, na.rm = TRUE),
+         perceived_polar_c = perceived_polar - 
+           mean(perceived_polar, na.rm = TRUE)) %>% 
+# Removing opin = 5 for when including the condition variable in the analysis 
+# Removing it because only want in and out-group for this analysis, this was an error in data collection to have a third option
+  filter(opin != 5) %>% 
+  # Removing those who responded incorrectly to the manipulation check
+  filter(check != 4)
+```
+
+
+## Follow-up 1
+
+```{r f1 mfq subscales}
+#separating MFQ into binding and individualizing subscales
+f1_mfq_binding <- pptnpf1_comb %>% 
+  filter(number %in% c("3", "4", "5", "9", "10", "11", "14", "15", "16", 
+                           "20", "21", "22")) %>%
+  select(Subject, number, Condition, MFQSelf_c, MFQSelf, Identification_c, Gender, Race, MFQTarg) %>% 
+  unique() %>% 
+  na.omit()
+
+f1_mfq_individual <- pptnpf1_comb %>% 
+  filter(number %in% c("1", "2", "7", "8", "12", "13", "18", "19")) %>%
+  select(Subject, number, Condition, MFQSelf_c, MFQSelf, Identification_c, Gender, Race, MFQTarg) %>% 
+  unique() %>% 
+  na.omit()
+```
+
+### Binding
+
+```{r f1 binding model}
+f1_binding <- lmer(MFQTarg ~ MFQSelf_c*Identification_c*Condition + 
+                              (MFQSelf_c|Subject), 
+                            data = f1_mfq_binding, na.action = na.omit)
+
+tab_model(f1_binding,
+          title = "Effects of predictors and interactions on projection of binding morals")
+```
+
+```{r f1 binding three way,include = FALSE, echo = FALSE}
+Ident_label <- c("-1.19" = "Low identification \n (1 SD below)",
+                 "0" = "Average \n identification",
+                 "1.19" = "High identification \n (1 SD above)")
+
+#Getting summary stats to plot
+f1_binding_summary_3way <-summary(lsmeans(f1_binding , 
+                               ~MFQSelf_c|Identification_c|Condition, 
+                               at = list (MFQSelf_c = c(-3:3), 
+                                          Identification_c = c(-1.19, 0, 1.19))))
+```
+
+```{r Three-way BW model f1 binding}
+#running the plot
+
+ggpreview <- function(...) {
+  fname <- tempfile(fileext = ".png")
+  ggsave(filename = fname, ...)
+  system2("open", fname)
+  invisible(NULL)
+}
+
+knitr::opts_chunk$set(fig.width = 8, fig.height = 6) 
+
+ggplot(f1_binding_summary_3way, aes(x = MFQSelf_c, 
+                         y = lsmean, 
+                         group = as.factor(Condition))) + 
+  facet_grid(.~Identification_c,
+             labeller = labeller(Identification_c = Ident_label)) + 
+  geom_line(size = .7, aes(linetype = Condition)) +
+  xlab("MFQ responses for self") + 
+  ylab("MFQ responses for target") + 
+  scale_linetype_manual("Issue polarization", 
+                        breaks = c(1,2,3,4), 
+                        labels = c ("Political\ncandidate",
+                                   "Racial\ndisadvantage",
+                                   "Marijuana\nlegalization",
+                                   "Peanut\nbutter"),
+                        values = c("solid",
+                                   "twodash", 
+                                   "dotted", 
+                                   "dashed")) + 
+  ggtitle("Projection predicted by identification and issue polarization") +
+  theme_minimal(base_size = 13) +
+  theme(legend.text = element_text(size = 10),
+        legend.key.width = unit(1, "cm"),
+        legend.position = "bottom")
+  
+ggpreview(width = 8, height = 6, units = "in")
+```
+
+
+Not much different than the overall, except now average identifiers in the political condition are negatively projecting and people in the racial disadvantage condition who highly identify aren't projecting at all.
+
+
+```{r f1 binding two-way set-up,include = FALSE, echo = FALSE}
+#Get summary stats for plot
+f1_binding_sum_cond <-summary(lsmeans(f1_binding, ~MFQSelf_c|Condition, 
+                                    at = list(MFQSelf_c = c(-3:3))))
+```
+
+
+```{r f1 binding two-way BW}
+knitr::opts_chunk$set(fig.width = 8, fig.height = 6) 
+
+ggplot(f1_binding_sum_cond, aes(x = MFQSelf_c, 
+                              y = lsmean, 
+                              group = as.factor(Condition)))+
+  geom_line(size = 1, aes(linetype = Condition)) +
+  xlab("MFQ responses for self") + 
+  ylab("MFQ responses for target") + 
+  scale_linetype_manual("Issue polarization", 
+                      breaks = c(1,2,3,4),
+                      labels = c("Political\ncandidate",
+                                  "Racial\ndisadvantage", 
+                                  "Marijuana\nlegalization",
+                                  "Peanut\nbutter"),
+                       values = c("solid",
+                                   "twodash", 
+                                   "dotted", 
+                                   "dashed")) +
+  ggtitle("Effect of issue polarization on projection with out-group targets") +
+  theme_minimal(base_size = 13) +
+  theme(legend.text = element_text(size = 10),
+        legend.key.width = unit(1.2, "cm"))
+
+
+ggpreview(width = 8, height = 6, units = "in")
+```
+
+Only difference is now there is counter projection in the political candidate condition.
+
+```{r f1 binding ident set-up, include = FALSE}
+f1_binding_ident <- effect(term ="MFQSelf_c:Identification_c", 
+                             xlevels = list(Identification_c = c(-1.19, 0, 1.19)), 
+                             mod = f1_binding)
+
+f1_binding_ident <- as.data.frame(f1_binding_ident)
+
+f1_binding_ident$Identification <- as.factor(f1_binding_ident$Identification_c)
+```
+
+```{r f1 binding ident plot}
+knitr::opts_chunk$set(fig.width = 8, fig.height = 6) 
+
+ggplot(f1_binding_ident, aes(MFQSelf_c, 
+                               fit, 
+                               group = Identification)) +
+  geom_line(aes(linetype = Identification), size = .7) +
+  scale_linetype_manual("Identification", 
+                       breaks = c(-1.19, 0, 1.19), 
+                       labels = c ("Low (1 SD below)", 
+                                  "Average ", 
+                                  "High (1 SD above)"),
+                        values = c("solid",
+                                   "twodash", 
+                                   "dotted")) +
+  theme_minimal(base_size = 13) +
+  labs(title = "Projection predicted by degree of in-group identification",
+       x = "MFQ responses for self",
+       y = "MFQ responses for target")
+
+ggpreview(width = 8, height = 6, units = "in")
+```
+
+Pretty similar to the overall model.
+
+### Individualizing
+
+```{r f1 individualizing model}
+f1_individual <- lmer(MFQTarg ~ MFQSelf_c*Identification_c*Condition + 
+                              (MFQSelf_c|Subject), 
+                            data = f1_mfq_individual, na.action = na.omit)
+
+tab_model(f1_individual,
+          title = "Effects of predictors and interactions on projection of individualizing morals")
+```
+
+The results of this model are also not that different from the overall model: the main effects of condition and identification are still significant, as well as the interaction between condition and identification.
+
+
+```{r f1 indiv three way,include = FALSE, echo = FALSE}
+#Creating label for in-group identification so it can be treated like a categorical variable in the plot
+Ident_label <- c("-1.19" = "Low identification \n (1 SD below)",
+                 "0" = "Average \n identification",
+                 "1.19" = "High identification \n (1 SD above)")
+
+#Getting summary stats to plot
+f1_individual_summary_3way <-summary(lsmeans(f1_individual, 
+                               ~MFQSelf_c|Identification_c|Condition, 
+                               at = list (MFQSelf_c = c(-3:3), 
+                                          Identification_c = c(-1.19, 0, 1.19))))
+```
+
+
+```{r Three-way BW model f1 individual}
+#running the plot
+
+ggpreview <- function(...) {
+  fname <- tempfile(fileext = ".png")
+  ggsave(filename = fname, ...)
+  system2("open", fname)
+  invisible(NULL)
+}
+
+knitr::opts_chunk$set(fig.width = 8, fig.height = 6) 
+
+ggplot(f1_individual_summary_3way, aes(x = MFQSelf_c, 
+                         y = lsmean, 
+                         group = as.factor(Condition))) + 
+  facet_grid(.~Identification_c,
+             labeller = labeller(Identification_c = Ident_label)) + 
+  geom_line(size = .7, aes(linetype = Condition)) +
+  xlab("MFQ responses for self") + 
+  ylab("MFQ responses for target") + 
+  scale_linetype_manual("Issue polarization", 
+                        breaks = c(1,2,3,4), 
+                        labels = c ("Political\ncandidate",
+                                   "Racial\ndisadvantage",
+                                   "Marijuana\nlegalization",
+                                   "Peanut\nbutter"),
+                        values = c("solid",
+                                   "twodash", 
+                                   "dotted", 
+                                   "dashed")) + 
+  ggtitle("Projection predicted by identification and issue polarization") +
+  theme_minimal(base_size = 13) +
+  theme(legend.text = element_text(size = 10),
+        legend.key.width = unit(1, "cm"),
+        legend.position = "bottom")
+  
+ggpreview(width = 8, height = 6, units = "in")
+```
+
+
+Interesting! With individualizing morals, people counter project more in the political condition when they are average identified than in the overall model and people strongly counter project in both the political and racial disadvantage conditions when highly identified. The overall model did not show counter projection in the racial disadvantage condition when people were highly identified.
+
+
+```{r f1 indiv two-way set-up,include = FALSE, echo = FALSE}
+#Get summary stats for plot
+f1_indiv_sum_cond <-summary(lsmeans(f1_individual, ~MFQSelf_c|Condition, 
+                                    at = list(MFQSelf_c = c(-3:3))))
+```
+
+```{r f1 indiv two-way BW}
+knitr::opts_chunk$set(fig.width = 8, fig.height = 6) 
+
+ggplot(f1_indiv_sum_cond, aes(x = MFQSelf_c, 
+                              y = lsmean, 
+                              group = as.factor(Condition)))+
+  geom_line(size = 1, aes(linetype = Condition)) +
+  xlab("MFQ responses for self") + 
+  ylab("MFQ responses for target") + 
+  scale_linetype_manual("Issue polarization", 
+                      breaks = c(1,2,3,4),
+                      labels = c("Political\ncandidate",
+                                  "Racial\ndisadvantage", 
+                                  "Marijuana\nlegalization",
+                                  "Peanut\nbutter"),
+                       values = c("solid",
+                                   "twodash", 
+                                   "dotted", 
+                                   "dashed")) +
+  ggtitle("Effect of issue polarization on projection with out-group targets") +
+  theme_minimal(base_size = 13) +
+  theme(legend.text = element_text(size = 10),
+        legend.key.width = unit(1.2, "cm"))
+
+
+ggpreview(width = 8, height = 6, units = "in")
+```
+
+
+Only difference is now there is counter projection in the political candidate condition and the racial disadvantage condition is pretty flat.
+
+
+```{r f1 indiv ident set-up, include = FALSE}
+#information to plot main effect of in-group identification
+describe(f1_mfq_individual$Identification_c)
+
+f1_indiv_ident <- effect(term ="MFQSelf_c:Identification_c", 
+                             xlevels = list(Identification_c = c(-1.19, 0, 1.19)), 
+                             mod = f1_individual)
+
+f1_indiv_ident  <- as.data.frame(f1_indiv_ident)
+
+f1_indiv_ident$Identification <- as.factor(f1_indiv_ident$Identification_c)
+```
+
+```{r f1 indiv ident plot}
+knitr::opts_chunk$set(fig.width = 8, fig.height = 6) 
+
+ggplot(f1_indiv_ident, aes(MFQSelf_c, 
+                               fit, 
+                               group = Identification)) +
+  geom_line(aes(linetype = Identification), size = .7) +
+  scale_linetype_manual("Identification", 
+                       breaks = c(-1.19, 0, 1.19), 
+                       labels = c ("Low (1 SD below)", 
+                                  "Average ", 
+                                  "High (1 SD above)"),
+                        values = c("solid",
+                                   "twodash", 
+                                   "dotted")) +
+  theme_minimal(base_size = 13) +
+  labs(title = "Projection predicted by degree of in-group identification",
+       x = "MFQ responses for self",
+       y = "MFQ responses for target")
+
+ggpreview(width = 8, height = 6, units = "in")
+```
+
+Pretty similar to the original.
+
+# BFI sub sreas: Follow-up 2
+
+Did this previously in another document, which I have uploaded to this project.
+
+# Political ideology breakdown of counter projection
+
+## Follow-up 1
+
+Look at whether or not they agreed or disagreed with the issue AND if the issue is generally liberal or conservative.
+
+Condition: What issue participants were given; 1 = political candidate, 2 = racial discrimination, 3 = weed, 4 = PB
+
+Issue_agreement: 1 for condition 1 is Clinton, 2 is Trump, for other three conditions 1 is yes to agreeing with issue, 4 is no to agreeing with issue (AKA ignoring PB, 1 = liberal, 4 = conservative beliefs)
+
+```{r f1 ideology}
+f1_ideology_model <- lmer(MFQTarg ~ MFQSelf_c*Identification_c*Condition*Issue_agreement + 
+                              (MFQSelf_c|Subject), 
+                            data = pptnpf1_comb, na.action = na.omit)
+
+tab_model(f1_ideology_model,
+          title = "Projection predicted by ideology")
+```
+
+```{r f1 issue agree plot 1}
+describe(pptnpf1_comb$Identification_c)
+
+effects_polident_f1 <- effect(term="MFQSelf_c:Identification_c:Condition", 
+                        xlevels= list(Identification_c=c(-1.19, 0, 1.19), 
+                                      Condition=c("1",
+                                                  "2",
+                                                  "3",
+                                                  "4")), 
+                        mod=f1_ideology_model)
+
+effects_polident_f1 <- as.data.frame(effects_polident_f1)
+
+effects_polident_f1$Identification<-as.factor(effects_polident_f1$Identification_c)
+
+f1_polident_ident_label <- c("-1.19"="Low Identification \n(1 SD Below)", 
+                       "0" = "Average \nIdentification",
+                       "1.19"="High Identification \n(1 SD Above)")
+
+ggplot(effects_polident_f1, aes(MFQSelf_c, fit)) +
+  geom_line(size = 1, aes(linetype = Condition)) +
+  facet_wrap(~Identification, 
+             labeller = labeller(Identification=f1_polident_ident_label)) +
+  scale_linetype_manual("Issue polarization", 
+                        breaks = c(1,2,3,4), 
+                        labels = c ("Political\ncandidate",
+                                   "Racial\ndisadvantage",
+                                   "Marijuana\nlegalization",
+                                   "Peanut\nbutter"),
+                        values = c("solid",
+                                   "twodash", 
+                                   "dotted", 
+                                   "dashed")) +
+    theme_minimal(base_size = 13) +
+  theme(legend.text = element_text(size = 10),
+        legend.key.width = unit(1.2, "cm")) +
+  labs(title = "Projection predicted by in-group identification and condition",
+       subtitle = "Included issue agreement in this model",
+       x = "MFQ ratings for self",
+       y = "MFQ ratings for target")
+```
+
+```{r f1 issue agree plot 2}
+describe(pptnpf1_comb$Issue_agreement)
+
+effects_polident_f1_plot2 <- effect(term="MFQSelf_c:Condition:Issue_agreement", 
+                        xlevels= list(Issue_agreement=c(1, 4), 
+                                      Condition=c("1",
+                                                  "2",
+                                                  "3",
+                                                  "4")), 
+                        mod=f1_ideology_model)
+
+effects_polident_f1_plot2 <- as.data.frame(effects_polident_f1_plot2)
+
+effects_polident_f1_plot2$Agreement<-as.factor(effects_polident_f1_plot2$Issue_agreement)
+
+f1_polident_ident_label2 <- c("1" = "Support Clinton, Acknowledge racism, \n Weed legalization, and Smooth PB",
+                             "4" = "Support Trump, Did not acknowledge racism, \n disagree with weed legalization, like crunchy peanut butter")
+
+ggplot(effects_polident_f1_plot2, aes(MFQSelf_c, fit)) +
+  geom_line(size = 1, aes(linetype = Condition)) +
+  facet_wrap(~Agreement, 
+             labeller = labeller(Agreement=f1_polident_ident_label2)) +
+  scale_linetype_manual("Issue polarization", 
+                        breaks = c(1,2,3,4), 
+                        labels = c ("Political\ncandidate",
+                                   "Racial\ndisadvantage",
+                                   "Marijuana\nlegalization",
+                                   "Peanut\nbutter"),
+                        values = c("solid",
+                                   "twodash", 
+                                   "dotted", 
+                                   "dashed")) +
+    theme_minimal(base_size = 13) +
+  theme(legend.text = element_text(size = 10),
+        legend.key.width = unit(1.2, "cm")) +
+  labs(title = "Projection predicted by  issue condition and issue agreement",
+       x = "MFQ ratings for self",
+       y = "MFQ ratings for target")
+```
+
+## Follow-up 2
+
+  * **opin** : Whether participants agreed or disgareed with the issue they were presented (e.g., Do you support marijuana legalization?)
+    + 1 = Yes
+    + 4 = No
+    
+```{r f2 ideology}
+contrasts(npf2_clean$condition) <- "contr.helmert"
+
+f2_ideology_model <- lmer(targ ~ self_c*ident_c*condition*opin + 
+                              (self_c|sub_id), 
+                            data = npf2_clean, na.action = na.omit)
+
+tab_model(f2_ideology_model,
+          title = "Projection predicted by ideology")
+```
+
+
+Model failed to converge, so results are unreliable. Any plot using intercepts and slopes from this model would also be unreliable.
+
+
+# Demographic differences in counter projection
+
+## Follow-up 1 - Gender
+
+```{r}
+f1_gender <- lmer(MFQTarg ~ MFQSelf_c*Identification_c*Condition*Gender + 
+                              (MFQSelf_c|Subject), 
+                            data = pptnpf1_comb, na.action = na.omit)
+```
+
+
+When adding gender,the model failed to converge.
+
+
+## Follow-up 1 - Race
+
+```{r}
+f1_race <- lmer(MFQTarg ~ MFQSelf_c*Identification_c*Condition*Race + 
+                              (MFQSelf_c|Subject), 
+                            data = pptnpf1_comb, na.action = na.omit)
+
+```
+
+
+When adding race, the fixed effect model was rank deficient and dropped predictors/comparisons.
+
+
+## Follow-up 2 - Gender
+
+```{r}
+npf2_clean <- npf2_clean %>% 
+  mutate(gender = as.factor(gender),
+         race = as.factor(race))
+
+f2_gender <- lmer(targ ~ self_c*ident_c*condition*gender + 
+                              (self_c|sub_id), 
+                            data = npf2_clean, na.action = na.omit)
+
+```
+
+
+Fixed effect model is rank deficient
+
+
+## Follow-up 2 - Race
+
+```{r}
+f2_race <- lmer(targ ~ self_c*ident_c*condition*race + 
+                              (self_c|sub_id), 
+                            data = npf2_clean, na.action = na.omit)
+
+```
+
+
+Fixed effect model is rank deficient. We don't have enough power to include extra categorical variables...
