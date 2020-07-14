@@ -633,6 +633,64 @@ As the stereotype difference increases, people are projecting more. When people'
 
 **This still generally supports Ames (2004) model of stereotyping, but lets see if it upholds by group and other moderators.**
 
+```{r proj by cand only}
+ggplot(nom_v_id_data, aes(MFQSelf_c, MFQTarg, color = par_cand)) +
+  geom_smooth(method = "lm",
+              se = TRUE) +
+  theme_minimal() +
+  scale_color_viridis_d() +
+  theme(legend.title=element_blank()) +
+  labs(title = "Projection predicted by candidate",
+       subtitle = "Model including stereotyping difference as moderator",
+       x = "MFQ responses for self",
+       y = "MFQ responses for target")
+
+```
+
+Trump supporters project more than Clinton supporters, but neither counter project across moderators.
+
+```{r proj by cand by diff}
+nvi_projxdiffxcand <- effect(term = 
+                                "MFQSelf_c:stereo_diff:par_cand", 
+                             xlevels = list(stereo_diff = c(0,1.0,2.0,3.0,4.0),
+                                            par_cand = c("Clinton", "Trump")), 
+                             mod = nom_v_id_model)
+
+nvi_projxdiffxcand<- as.data.frame(nvi_projxdiffxcand)
+
+nvi_projxdiffxcand$stereo_diff <- as.factor(nvi_projxdiffxcand$stereo_diff)
+nvi_projxdiffxcand$cand <- as.factor(nvi_projxdiffxcand$par_cand)
+
+ggplot(nvi_projxdiffxcand, aes(MFQSelf_c, 
+                               fit, 
+                               group = stereo_diff, 
+                               color = stereo_diff)) +
+  geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black",
+              aes(linetype = stereo_diff)) +
+  facet_wrap(~par_cand) +
+  scale_linetype_manual("Stereoype \nDifference", breaks = c(0,1.0,2.0,3.0,4.0), 
+                       labels = c("None",
+                                  "1.0",
+                                  "2.0",
+                                  "3.0",
+                                  "4.0"),
+                       values = c("solid", 
+                                  "dashed",
+                                  "dotted",
+                                  "F1",
+                                  "1F")) +
+  theme_minimal(base_size = 13) +
+  labs(title = "Projection predicted by stereotype difference score and \ncandidate preference",
+       subtitle = "Difference score operationalized as nomothetic - idiographic ",
+       x = "MFQ responses for self",
+       y = "MFQ responses for target") +
+  theme(legend.text = element_text(size = 10),
+        legend.key.width = unit(1.4, "cm"))
+
+```
+
+As stereotype difference increases, projection decreases more for Clinton supporters than Trump supporters.
+
 ```{r proj x diff x group set-up}
 nvi_projxdiffxgroup <- effect(term = "MFQSelf_c:stereo_diff:inoutgroup_effects", 
                              xlevels = list(stereo_diff = c(0,1.0,2.0,3.0,4.0),
