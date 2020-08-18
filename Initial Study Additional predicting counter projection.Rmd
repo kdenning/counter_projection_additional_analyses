@@ -153,19 +153,17 @@ clean_data2 <- clean_data %>%
                                      ifelse(inoutgroup == "Outgroup", -.5, NA)),
          PT_effects = ifelse(PT == "PT", .5, 
                              ifelse(PT == "control", -.5, NA)),
-         targ_cand = ifelse(targ_cand == "Clinton", 1, 
-                            ifelse(targ_cand == "Trump", 2, NA)),
-         MFQStereo = ifelse(par_cand == "Clinton", MFQClin, 
-                            ifelse(par_cand == "Trump", MFQTrump, NA))) %>% 
+         MFQStereo = ifelse(targ_cand == "Clinton", MFQClin, 
+                            ifelse(targ_cand == "Trump", MFQTrump, NA))) %>% 
   #grand mean centering MFQ for self
   mutate(MFQSelf_c = MFQSelf - mean(MFQSelf)) %>%  
   #removing people who failed the manipulation check
-  filter(targ_cand == 1 & Man_TargVote == 1 | 
-           targ_cand == 2 & Man_TargVote == 2) %>%
+  filter(targ_cand == "Clinton" & Man_TargVote == 1 | 
+           targ_cand == "Trump" & Man_TargVote == 2) %>%
   select(-Day_content, -Day_key) %>% 
-  #effects coding candidate
-  mutate(Targ_Cand_effectscoded = ifelse(targ_cand == "1", .5, 
-                                         ifelse(targ_cand == "2", -.5, NA)),
+  #effects coding candidate target voted for
+  mutate(Targ_Cand_effectscoded = ifelse(targ_cand == "Clinton", .5, 
+                                         ifelse(targ_cand == "Trump", -.5, NA)),
          MFQStereo_c = MFQStereo - mean(MFQStereo, na.rm = TRUE))
 
 #for some reason, this wouldn't work in the piping above, so had to hard code it
@@ -395,13 +393,12 @@ is_cand <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c *
 
 tab_model(is_cand,
           title = "Projection moderated by stereotyping")
-
 ```
 
 
 When we include who the participant voted for with stereotyping as well, we still have the main effect from above. Now, the interaction between target group and in-group identification is significant. There is also an interaction between target group (in or out) and who the participant voted for. However, an interaction between target group, degree of in-group identification, and who they voted for is not significant. There are other significant interactions including stereotyping, but, since we only included it as a moderator to see if the relationship persisted, I didn't go through them thoroughly.
 
-## Plots
+## Projection Plots
 
 ```{r is group by cand set-up}
 is_group_cand <- effect(term = "MFQSelf_c:inoutgroup_effects:par_cand", 
@@ -501,11 +498,337 @@ ggplot(is_group_cand, aes(MFQSelf_c,
        y = "MFQ responses for target")
 ```
 
+## Stereotyping plots
+
+```{r stereo inout}
+is_group_stereo <- effect(term = "MFQStereo_c:inoutgroup_effects", 
+                             xlevels = list(inoutgroup_effects = c(-.5,.5)), 
+                             mod = is_cand)
+
+is_group_stereo <- as.data.frame(is_group_stereo)
+
+is_group_stereo$Group <- as.factor(is_group_stereo$inoutgroup_effects)
+
+ggplot(is_group_stereo, aes(MFQStereo_c, 
+                               fit, 
+                               group = Group, 
+                               color = Group)) +
+  geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black",
+              aes(linetype = Group)) +
+  scale_linetype_manual("Group", breaks = c(-.5, .5), 
+                       labels = c("Out-group", "In-group"),
+                       values = c("solid", 
+                                  "dashed")) +
+  theme_minimal() +
+  labs(title = "Stereotyping predicted by group membership",
+       subtitle = "Controlling for projection",
+       x = "MFQ responses for typical group member",
+       y = "MFQ responses for target")
+```
+
+People stereotype out-group more than in-group.
+
+```{r stereo voter pref}
+is_cand_stereo <- effect(term = "MFQStereo_c:par_cand", 
+                             xlevels = list(par_cand = c("Clinton", "Trump")), 
+                             mod = is_cand)
+
+is_cand_stereo <- as.data.frame(is_cand_stereo)
+
+is_cand_stereo$Candidate <- as.factor(is_cand_stereo$par_cand)
+
+ggplot(is_cand_stereo, aes(MFQStereo_c, 
+                               fit, 
+                               group = Candidate, 
+                               color = Candidate)) +
+  geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black",
+              aes(linetype = Candidate)) +
+  theme_minimal() +
+  labs(title = "Stereotyping predicted by voter preference",
+       subtitle = "Controlling for projection",
+       x = "MFQ responses for typical group member",
+       y = "MFQ responses for target")
+```
+
+Clinton supporters stereotype more than Trump supporters.
+
+```{r is group by cand set-up for stereo}
+is_group_cand_stereo <- effect(term = "MFQStereo_c:inoutgroup_effects:par_cand", 
+                             xlevels = list(inoutgroup_effects = c(-.5,.5),
+                                            par_cand = c("Clinton", "Trump")), 
+                             mod = is_cand)
+
+is_group_cand_stereo <- as.data.frame(is_group_cand_stereo)
+
+is_group_cand_stereo$Group <- as.factor(is_group_cand_stereo$inoutgroup_effects)
+```
+
+```{r is group by cand for stereo}
+ggplot(is_group_cand_stereo, aes(MFQStereo_c, 
+                               fit, 
+                               group = Group, 
+                               color = Group)) +
+  geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black",
+              aes(linetype = Group)) +
+  facet_wrap(~par_cand)+
+  scale_linetype_manual("Group", breaks = c(-.5, .5), 
+                       labels = c("Out-group", "In-group"),
+                       values = c("solid", 
+                                  "dashed")) +
+  theme_minimal() +
+  labs(title = "Stereotyping predicted by group membership",
+       subtitle = "Controlling for projection",
+       x = "MFQ responses for typical group",
+       y = "MFQ responses for target")
+```   
+
+Trump supporters stereotype the out-group more than their in-group, while Clinton supporters stereotype them to a similar extent. 
+
+```{r stereo cand 3way set-up predicting stereo}
+is_3way_cand_stereo <- effect(term = "MFQStereo_c:inoutgroup_effects:ident_c", 
+                           xlevels = list(ident_c = c(-1.78, 0, 1.78), 
+                                         inoutgroup_effects = c(-.5,.5)), 
+                           mod = is_cand)
+
+is_3way_cand_stereo  <- as.data.frame(is_3way_cand_stereo)
+
+is_3way_cand_stereo$Group <- as.factor(is_3way_cand_stereo$inoutgroup_effects)
+is_3way_cand_stereo$Identification <- as.factor(is_3way_cand_stereo$ident_c)
+
+ident_label <- c("-1.78" = "Low identification \n (1 SD below)", 
+                 "0" = "Average identification",
+                 "1.78" = "High identificatiion \n(1 SD above)")
+```
+
+```{r three-way stereo cand predicting stereo}
+ggplot(is_3way_cand_stereo, aes(MFQStereo_c, 
+                             fit, 
+                             group = Group, 
+                             color = Group)) +
+  geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black", 
+              aes(linetype = Group)) +
+  facet_wrap(~Identification, labeller = 
+               labeller(Identification = ident_label)) +
+  scale_linetype_manual("Group", breaks = c(-.5, .5), 
+                       labels = c("Out-group", "In-group"),
+                       values = c("solid", 
+                                   "dashed")) +
+  theme_minimal() +
+  labs(title = "Stereotyping predicted by in-group identification and group membership",
+       subtitle = "Controlling for projection",
+       x = "MFQ responses for typical group",
+       y = "MFQ responses for target")
+```
+
+## Stereotyping by projection plots
+
+### By in/out-group
+
+```{r proj x stereo x inoutgroup set-up}
+describe(stereo_analysis$MFQStereo_c)
+is_stereo_proj_group <- effect(term = "MFQSelf_c:MFQStereo_c:inoutgroup_effects", 
+                           xlevels = list(MFQStereo_c = c(-1.48, 0, 1.48), 
+                                         inoutgroup_effects = c(-.5,.5)), 
+                           mod = is_cand)
+
+is_stereo_proj_group  <- as.data.frame(is_stereo_proj_group)
+
+is_stereo_proj_group$Group <- as.factor(is_stereo_proj_group$inoutgroup_effects)
+is_stereo_proj_group$Stereotyping <- as.factor(is_stereo_proj_group$MFQStereo_c)
+
+stereo_label <- c("-1.48" = "Less stereotyping \n (1 SD below)", 
+                 "0" = "Average stereotyping",
+                 "1.48" = "High stereotyping \n(1 SD above)")
+```
+
+```{r proj x stereo x inoutgroup plot}
+ggplot(is_stereo_proj_group, aes(MFQSelf_c, 
+                             fit, 
+                             group = Group, 
+                             color = Group)) +
+  geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black", 
+              aes(linetype = Group)) +
+  facet_wrap(~Stereotyping, labeller = 
+               labeller(Stereotyping = stereo_label)) +
+  scale_linetype_manual("Group", breaks = c(-.5, .5), 
+                       labels = c("Out-group", "In-group"),
+                       values = c("solid", 
+                                   "dashed")) +
+  theme_minimal() +
+  labs(title = "Projection predicted by stereotyping and group membership",
+       subtitle = "Higher stereotyping = more correspondence between MFQ responses \nfor stereotypical group member and target individual",
+       x = "MFQ responses for Self",
+       y = "MFQ responses for target")
+```
+
+### By identification
+
+```{r proj x stereo x identification set-up}
+is_stereo_proj_ident <- effect(term = "MFQSelf_c:MFQStereo_c:ident_c", 
+                           xlevels = list(MFQStereo_c = c(-1.48, 0, 1.48), 
+                                         ident_c = c(-1.78, 0, 1.78)), 
+                           mod = is_cand)
+
+is_stereo_proj_ident  <- as.data.frame(is_stereo_proj_ident)
+
+is_stereo_proj_ident$Identification <- as.factor(is_stereo_proj_ident$ident_c)
+is_stereo_proj_ident$Stereotyping <- as.factor(is_stereo_proj_ident$MFQStereo_c)
+
+stereo_label <- c("-1.48" = "Less stereotyping \n (1 SD below)", 
+                 "0" = "Average stereotyping",
+                 "1.48" = "High stereotyping \n(1 SD above)")
+```
+
+```{r proj x stereo x ident plot}
+ggplot(is_stereo_proj_ident, aes(MFQSelf_c, 
+                             fit, 
+                             group = Identification, 
+                             color = Identification)) +
+  geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black", 
+              aes(linetype = Identification)) +
+  facet_wrap(~Stereotyping, labeller = 
+               labeller(Stereotyping = stereo_label)) +
+  scale_linetype_manual("Identification", breaks = c(-1.78, 0, 1.78), 
+                       labels = c("Low (1 SD below)", 
+                                  "Average", 
+                                  "High (1 SD above)"),
+                       values = c("solid", 
+                                   "dashed",
+                                  "dotted")) +
+  theme_minimal() +
+  labs(title = "Projection predicted by stereotyping and identification",
+       subtitle = "Higher stereotyping = more correspondence between MFQ responses \nfor stereotypical group member and target individual",
+       x = "MFQ responses for Self",
+       y = "MFQ responses for target")
+```
+
+### By in/out-group and identification
+
+```{r proj x stereo x identification x group set-up}
+is_stereo_proj_ident_group <- effect(term = "MFQSelf_c:MFQStereo_c:inoutgroup_effects:ident_c", 
+                           xlevels = list(MFQStereo_c = c(-1.48, 0, 1.48), 
+                                         ident_c = c(-1.78, 0, 1.78),
+                                         inoutgroup_effects = c(-.5,.5)), 
+                           mod = is_cand)
+
+is_stereo_proj_ident_group  <- as.data.frame(is_stereo_proj_ident_group)
+
+is_stereo_proj_ident_group$Identification <- as.factor(is_stereo_proj_ident_group$ident_c)
+is_stereo_proj_ident_group$Stereotyping <- as.factor(is_stereo_proj_ident_group$MFQStereo_c)
+is_stereo_proj_ident_group$Group <- as.factor(is_stereo_proj_ident_group$inoutgroup_effects)
+
+stereo_label <- c("-1.48" = "Less stereotyping \n (1 SD below)", 
+                 "0" = "Average stereotyping",
+                 "1.48" = "High stereotyping \n(1 SD above)")
+```
+
+```{r proj x stereo x ident x group plot}
+ggplot(is_stereo_proj_ident_group, aes(MFQSelf_c, 
+                             fit, 
+                             group = Group, 
+                             color = Group)) +
+  geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black", 
+              aes(linetype = Group)) +
+  facet_grid(Stereotyping ~ Identification, labeller = 
+               labeller(Identification = ident_label, Stereotyping = stereo_label)) +
+    scale_linetype_manual("Group", breaks = c(-.5, .5), 
+                       labels = c("Out-group", "In-group"),
+                       values = c("solid", 
+                                   "dashed")) +
+  theme_minimal() +
+  labs(title = "Projection predicted by stereotyping, identification, and group",
+       subtitle = "Higher stereotyping = more correspondence between MFQ responses \nfor stereotypical group member and target individual",
+       x = "MFQ responses for Self",
+       y = "MFQ responses for target")
+```
+
+### By Candidate and identification
+
+```{r proj x stereo x identification x cand set-up}
+is_stereo_proj_ident_cand <- effect(term = "MFQSelf_c:MFQStereo_c:ident_c:par_cand", 
+                           xlevels = list(MFQStereo_c = c(-1.48, 0, 1.48), 
+                                         ident_c = c(-1.78, 0, 1.78),
+                                         par_cand = c("Clinton", "Trump")), 
+                           mod = is_cand)
+
+is_stereo_proj_ident_cand  <- as.data.frame(is_stereo_proj_ident_cand)
+
+is_stereo_proj_ident_cand$Identification <- as.factor(is_stereo_proj_ident_cand$ident_c)
+is_stereo_proj_ident_cand$Stereotyping <- as.factor(is_stereo_proj_ident_cand$MFQStereo_c)
+is_stereo_proj_ident_cand$Candidate <- as.factor(is_stereo_proj_ident_cand$par_cand)
+
+stereo_label <- c("-1.48" = "Less stereotyping \n (1 SD below)", 
+                 "0" = "Average stereotyping",
+                 "1.48" = "High stereotyping \n(1 SD above)")
+```
+
+```{r proj x stereo x ident x cand plot}
+ggplot(is_stereo_proj_ident_cand, aes(MFQSelf_c, 
+                             fit, 
+                             group = Candidate, 
+                             color = Candidate)) +
+  geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black", 
+              aes(linetype = Candidate)) +
+  facet_grid(Stereotyping ~ Identification, labeller = 
+               labeller(Identification = ident_label, Stereotyping = stereo_label)) +
+    scale_linetype_manual("Candidate", breaks = c("Clinton", "Trump"),
+                       values = c("solid", 
+                                   "dashed")) +
+  theme_minimal() +
+  labs(title = "Projection predicted by stereotyping, identification, and candidate",
+       subtitle = "Higher stereotyping = more correspondence between MFQ responses \nfor stereotypical group member and target individual",
+       x = "MFQ responses for Self",
+       y = "MFQ responses for target")
+```
+
+### By candidate and in/out-group
+
+```{r proj x stereo x inout x cand set-up}
+is_stereo_proj_inout_cand <- effect(term = "MFQSelf_c:MFQStereo_c:inoutgroup_effects:par_cand", 
+                           xlevels = list(MFQStereo_c = c(-1.48, 0, 1.48), 
+                                         inoutgroup_effects = c(-.5,.5),
+                                         par_cand = c("Clinton", "Trump")), 
+                           mod = is_cand)
+
+is_stereo_proj_inout_cand  <- as.data.frame(is_stereo_proj_inout_cand)
+
+is_stereo_proj_inout_cand$Group <- as.factor(is_stereo_proj_inout_cand$inoutgroup_effects)
+is_stereo_proj_inout_cand$Stereotyping <- as.factor(is_stereo_proj_inout_cand$MFQStereo_c)
+is_stereo_proj_inout_cand$Candidate <- as.factor(is_stereo_proj_inout_cand$par_cand)
+
+stereo_label <- c("-1.48" = "Less stereotyping \n (1 SD below)", 
+                 "0" = "Average stereotyping",
+                 "1.48" = "High stereotyping \n(1 SD above)")
+group_label <- c("-0.5" = "Out-group",
+                 "0.5" = "In-group")
+```
+
+```{r proj x stereo x inout x cand plot}
+ggplot(is_stereo_proj_inout_cand, aes(MFQSelf_c, 
+                             fit, 
+                             group = Candidate, 
+                             color = Candidate)) +
+  geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black", 
+              aes(linetype = Candidate)) +
+  facet_grid(Stereotyping ~ Group, labeller = 
+               labeller(Group = group_label, Stereotyping = stereo_label)) +
+    scale_linetype_manual("Candidate", breaks = c("Clinton", "Trump"),
+                       values = c("solid", 
+                                   "dashed")) +
+  theme_minimal() +
+  labs(title = "Projection predicted by stereotyping, identification, and candidate",
+       subtitle = "Higher stereotyping = more correspondence between MFQ responses \nfor stereotypical group member and target individual",
+       x = "MFQ responses for Self",
+       y = "MFQ responses for target")
+```
+
+### 5-way plot
+
 ```{r 5way}
 is_5way <- effect(term = "MFQSelf_c:MFQStereo_c:inoutgroup_effects:ident_c:par_cand", 
                            xlevels = list(ident_c = c(-1.78, 0, 1.78), 
                                          inoutgroup_effects = c(-.5,.5),
-                                         MFQStereo_c = c(-1.35, 0, 1.35),
+                                         MFQStereo_c = c(-1.48, 0, 1.48),
                                          par_cand = c("Clinton", "Trump")), 
                            mod = is_cand)
 
@@ -521,9 +844,9 @@ is_5way$Candidate <- as.factor(is_5way$par_cand)
 clinton_5way <- is_5way %>% 
   filter(Candidate == "Clinton")
 
-stereo_label <- c("-1.35" = "Low Stereotyping \n (1 SD below)", 
+stereo_label <- c("-1.48" = "Low Stereotyping \n (1 SD below)", 
                  "0" = "Average \nStereotyping",
-                 "1.35" = "High Stereotyping \n(1 SD above)")
+                 "1.48" = "High Stereotyping \n(1 SD above)")
 
 ggplot(clinton_5way, aes(MFQSelf_c, 
                              fit, 
