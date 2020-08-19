@@ -871,9 +871,9 @@ ggplot(clinton_5way, aes(MFQSelf_c,
 trump_5way <- is_5way %>% 
   filter(Candidate != "Clinton")
 
-stereo_label <- c("-1.35" = "Low Stereotyping \n (1 SD below)", 
+stereo_label <- c("-1.48" = "Low Stereotyping \n (1 SD below)", 
                  "0" = "Average \nStereotyping",
-                 "1.35" = "High Stereotyping \n(1 SD above)")
+                 "1.48" = "High Stereotyping \n(1 SD above)")
 
 ggplot(trump_5way, aes(MFQSelf_c, 
                              fit, 
