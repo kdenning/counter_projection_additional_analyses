@@ -952,9 +952,8 @@ ggplot(nvi_projxdiff, aes(MFQSelf_c,
         legend.key.width = unit(1.4, "cm"))
 ```
 
-As the stereotype difference increases, people are projecting more. When people's idiographic stereotypes are more similar to the nomethetic stereotype, they project less. Its when people's stereotypes are less like the group stereotype that they use more projection. 
+Non-significant main effect of stereotype difference.
 
-**This still generally supports Ames (2004) model of stereotyping, but lets see if it upholds by group and other moderators.**
 
 ```{r proj by cand only}
 ggplot(nom_v_id_data, aes(MFQSelf_c, MFQTarg, color = par_cand)) +
@@ -1012,7 +1011,7 @@ ggplot(nvi_projxdiffxcand, aes(MFQSelf_c,
 
 ```
 
-As stereotype difference increases, projection decreases more for Clinton supporters than Trump supporters.
+As stereotype difference increases, projection decreases for Clinton supporters. On the other hand, as stereoype difference increases, projection increases for Trump supporters.
 
 ```{r proj x diff x group set-up}
 nvi_projxdiffxgroup <- effect(term = "MFQSelf_c:stereo_diff:inoutgroup_effects", 
@@ -1058,7 +1057,7 @@ ggplot(nvi_projxdiffxgroup, aes(MFQSelf_c,
         legend.key.width = unit(1.4, "cm"))
 ```
 
-When people in the out-group condition's individual stereotypes become more like the group (less difference), they counter project more. People in the out-group condition project normally regardless of how much their in-group stereotypes are like that of the group.
+Non-significant interaction, but wanted to show it. Regardless of stereotype difference, people are counter projecting with their out-group target and projecting with their in-group.
 
 ```{r proj, stereo diff, ident set-up}
 nvi_projxdiffxident <- effect(term = "MFQSelf_c:stereo_diff:ident_c", 
@@ -1102,8 +1101,7 @@ ggplot(nvi_projxdiffxident, aes(MFQSelf_c,
 ```
 
 
-As in-group identification increases, people whose individual stereotypes are the same as their group stereotype project less. Interestingly, those who show even a slight difference between stereotypes, continue to project the same amount across in-group identification. Moreover, people whose stereotypes are 2 or more different from the group stereotype start projecting *more* as in-group identification increase.
-
+As in-group identification increases, people whose individual stereotypes are the same as their group stereotype project less. Interestingly, those who show even a slight difference between stereotypes, continue to project the same amount across in-group identification. Moreover, people whose stereotypes are 2 or more different from the group stereotype's intercepts increase as identification increases.
 
 ```{r proj x diff x group x cand set-up}
 nvi_projxdiffxgroupxcand <- effect(term = 
@@ -1149,12 +1147,7 @@ ggplot(nvi_projxdiffxgroupxcand, aes(MFQSelf_c,
         legend.key.width = unit(1.4, "cm"))
 ```
 
-
-Clinton supporters in the out-group condition are the only group to show counter projection. People whose individual stereotypes are more similiar to the group stereotype (either the same or only 1 point of difference), counter project. Out-group Clinton supporters who are 2 points different from the group on stereotypes do not project at all, and those whose stereotypes are very different from the group stereotype continue to project normally onto their out-group.
-
-Trump supporters in the out-group condition whose individual stereotypes are the same as the group stereotype do not project. As the difference between their idiographic and nomothetic stereotypes increases, Trump supporters project more with thier out-group. 
-
-Both groups continue to project with their in-group regardless of stereotype difference.
+Clinton supporters counter project with their out-group regardless of stereotype difference, while Trump supporters either don't project (at high stereotype difference) to slightly project (as stereotypes become more like the group stereotype). With in-group targets, Clinton supporters project more similarly across stereotype difference, though people whose stereotype's of their in-group are most similar to the group project the most and those who are the most different project the least. On the other hand, Trump supporters project the least with their in-group when they report the same stereotypes as the group and their projection increases as their stereotype difference increases.
 
 # MFQ sub areas
 
