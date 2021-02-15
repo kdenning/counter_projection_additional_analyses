@@ -32,6 +32,7 @@ library(effects)
 library(Cairo)
 library(tinytex)
 library(rio)
+library(magrittr)
 
 #making it round to three decimal places
 options(scipen = 999)
@@ -201,14 +202,20 @@ projmodel_stereo <- lmer(MFQTarg ~ MFQSelf_c * MFQStereo_c *
 #results
 tab_model(projmodel_stereo,
           title = "Projection moderated by stereotyping")
+
+#confidence intervals for ones that rounding to two in tab_model isn't enough info
+confint(projmodel_stereo)
 ```
 
 ## Plots for overall model
 
 ```{r int proj, stereo, and ident set-up}
+describe(stereo_analysis$MFQStereo_c)
+describe(stereo_analysis$ident_c)
+
 proj_stereo_effects <- effect(term = "MFQSelf_c:MFQStereo_c:ident_c", 
                            xlevels = list(ident_c = c(-1.78, 0, 1.78), 
-                                         MFQStereo_c = c(-1.35, 0, 1.35)), 
+                                         MFQStereo_c = c(-1.48, 0, 1.48)), 
                            mod = projmodel_stereo)
 
 proj_stereo_int <- as.data.frame(proj_stereo_effects)
@@ -218,19 +225,23 @@ proj_stereo_int$Identification <- as.factor(proj_stereo_int$ident_c)
 
 ident_label <- c("-1.78" = "Low identification \n (1 SD below)", 
                  "0" = "Average identification",
-                 "1.78" = "High identificatiion \n(1 SD above)")
+                 "1.78" = "High identificatiion \n (1 SD above)")
+
+stereo_label <- c("-1.48" = "Low stereotyping \n (1 SD below)",
+                  "0" = "Average stereotyping",
+                  "1.48" = "High stereotyping \n (1 SD above)")
 ```
 
 ```{r proj stereo ident plot}
 ggplot(proj_stereo_int, aes(MFQSelf_c, 
                              fit, 
-                             group = Stereotyping, 
-                             color = Stereotyping)) +
+                             group = Identification, 
+                             color = Identification)) +
   geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black", 
-              aes(linetype = Stereotyping)) +
-  facet_wrap(~Identification, labeller = 
-               labeller(Identification = ident_label)) +
-  scale_linetype_manual("Stereotyping", breaks = c(-1.35, 0, 1.35), 
+              aes(linetype = Identification)) +
+  facet_wrap(~Stereotyping, labeller = 
+               labeller(Stereotyping = stereo_label)) +
+  scale_linetype_manual("Identification", breaks = c(-1.78, 0, 1.78), 
                        labels = c("Low (1 SD below)", 
                                   "Average",
                                   "High (1 SD above)"),
@@ -304,8 +315,49 @@ ggplot(initial_study_main_group, aes(MFQSelf_c,
        y = "MFQ responses for target")
 ```
 
-
 These results demonstrate that our significant three-way interaction from before is no longer significant, but the main effect of group identification still is significant and still shows counter projection. The three-way is not significant because, regardless of in-group identification, people are still counter projecting to the same extent with their out-group and projecting normally with their in-group.
+
+```{r int proj, stereo, group, and ident set-up}
+proj_stereo_4way <- effect(term = "MFQSelf_c:MFQStereo_c:inoutgroup_effects:ident_c", 
+                           xlevels = list(ident_c = c(-1.78, 0, 1.78), 
+                                         MFQStereo_c = c(-1.48, 0, 1.48),
+                                         inoutgroup_effects = c(-.5,.5)), 
+                           mod = projmodel_stereo)
+
+proj_stereo_4way <- as.data.frame(proj_stereo_4way)
+
+group_label <- c()
+
+proj_stereo_4way %<>% 
+  mutate(Identification = as.factor(ident_c),
+         Stereotyping = as.factor(MFQStereo_c),
+         TargetGroup = as.factor(inoutgroup_effects)) %>% 
+  mutate(TargetGroup = dplyr::recode(TargetGroup,
+                                     `-0.5` = "Out-group",
+                                     `0.5` = "In-group"))
+```
+
+```{r int proj, stereo, group, and ident plot}
+ggplot(proj_stereo_4way, aes(MFQSelf_c, 
+                             fit, 
+                             group = Identification)) +
+  geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black", 
+              aes(linetype = Identification)) +
+  facet_grid(vars(TargetGroup), vars(Stereotyping),
+             labeller = labeller(Stereotyping = stereo_label)) +
+  scale_linetype_manual("Identification", breaks = c(-1.78, 0, 1.78), 
+                       labels = c("Low (1 SD below)", 
+                                  "Average",
+                                  "High (1 SD above)"),
+                       values = c("solid", 
+                                   "dashed",
+                                  "dotted")) +
+  theme_minimal() +
+  labs(title = "Projection predicted by identification, target group, and stereotyping",
+       x = "MFQ responses for self",
+       y = "MFQ responses for target")
+
+```
 
 ## Looking at subgroups of target group
 
