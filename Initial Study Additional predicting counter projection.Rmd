@@ -235,6 +235,7 @@ psych::alpha(ingroup)
 ```{r authority alpha}
 authority <- MFQ_alpha %>% 
   select(c("4", "10", "15", "26", "31"))
+psych::alpha(authority)
 ```
 
 ## Purity alpha
@@ -242,6 +243,7 @@ authority <- MFQ_alpha %>%
 ```{r purity alpha}
 purity <- MFQ_alpha %>% 
   select(c("5", "11", "16", "27", "32"))
+psych::alpha(purity)
 ```
 
 # Stereotype moderator analysis
