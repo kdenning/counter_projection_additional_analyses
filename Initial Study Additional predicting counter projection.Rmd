@@ -190,6 +190,60 @@ stereo_analysis <- clean_data2 %>%
   na.omit()
 ```
 
+# MFQ alpha
+
+## Overall alpha
+
+```{r MFQ alphas}
+MFQ_alpha <- clean_data2 %>% 
+  select(subid, MFQ_Number, MFQSelf) %>% 
+  unique() %>% 
+  na.omit() %>% 
+  pivot_wider(names_from = MFQ_Number, values_from = MFQSelf)
+
+MFQ_alpha <- MFQ_alpha[-1] 
+
+psych::alpha(MFQ_alpha)
+```
+
+## Harm alpha
+
+```{r harm alpha}
+harm <- MFQ_alpha %>% 
+  select(c("1", "7", "12", "17", "23", "28"))
+psych::alpha(harm)
+```
+
+## Fairness alpha
+
+```{r fairness alpha}
+fair <- MFQ_alpha %>% 
+  select(c("2", "8", "13", "18", "24", "29"))
+psych::alpha(fair)
+```
+
+## Ingroup alpha
+
+```{r ingroup alpha}
+ingroup <- MFQ_alpha %>% 
+  select(c("3", "9", "14", "25", "30"))
+psych::alpha(ingroup)
+```
+
+## Authority alpha
+
+```{r authority alpha}
+authority <- MFQ_alpha %>% 
+  select(c("4", "10", "15", "26", "31"))
+```
+
+## Purity alpha
+
+```{r purity alpha}
+purity <- MFQ_alpha %>% 
+  select(c("5", "11", "16", "27", "32"))
+```
+
 # Stereotype moderator analysis
 
 ```{r stereo analysis}
