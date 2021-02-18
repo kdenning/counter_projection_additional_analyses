@@ -80,8 +80,9 @@ no_bots <- wide_data %>%
   filter(!subid %in% c(96, 99, 166, 167, 171, 239, 265, 345, 613, 758, 778, 779))
 
 no_bots <- no_bots[-c(1), ] 
+
 #Data cleaning
-clean_data <- no_bots %>% 
+clean_data <- clean_data <- no_bots %>% 
   ## drop two MFQ items that aren't actually the survey - 6, 22 in each
 select(-MFQSelf_6, -MFQSelf_22, -MFQTrump_6, -MFQTrump_22, -MFQClin_6,
        -MFQClin_22, -MFQTarg_6, -MFQTarg_22) %>% 
@@ -89,20 +90,26 @@ select(-MFQSelf_6, -MFQSelf_22, -MFQTrump_6, -MFQTrump_22, -MFQClin_6,
   select(-c(PANAS1_1:PANAS1_20, PANAS2_1:PANAS2_20, 
             gender_writein, race_writein, birth_writein, race_writein, 
             language_writein, raise_writein)) %>% 
-  mutate_if(is.factor, as.numeric) %>% 
   ### Wrangling data to get MFQ for self, MFQ to targ, MFQ for stereotype, column for candidate, average of IG identification
-  gather("MFQ_Type", "MFQ_Score", MFQSelf_1:MFQTarg_32) %>% 
-  separate(.,MFQ_Type, c("MFQ_Type", "MFQ_Number"),"\\_") %>% 
-  spread(MFQ_Type, MFQ_Score) %>% 
-  gather("IG_Type", "IG_Score", IG_Clin_1:IG_Trump_14) %>% 
-  separate(.,IG_Type, c("Drop", "IG_Type", "IG_Number"),"\\_") %>% 
-  filter(!is.na(IG_Score)) %>% 
-  group_by(subid) %>% 
-  #average of in-group identification for each subject
+  pivot_longer(c(MFQSelf_1:MFQSelf_32,
+                 MFQTrump_1:MFQTrump_32,
+                 MFQClin_1:MFQClin_32,
+                 MFQTarg_1:MFQTarg_32),
+               names_sep = "_",
+               names_to = c("mfq_type", "MFQ_Number")) %>% 
+  pivot_wider(names_from = mfq_type, values_from = value) %>% 
+  pivot_longer(IG_Clin_1:IG_Trump_14,
+               names_sep = "_",
+               names_to = c("ident", "ident_targ", "ident_num")) %>% 
+  pivot_wider(names_from = ident, values_from = value) %>% 
+  rename(ident = IG) %>% 
+  filter(!is.na(ident)) %>% 
   #making candidate they voted for a factor
-  mutate(Cand_votedfor = ifelse(IG_Type == "Clin", 1, 
-                                ifelse(IG_Type == "Trump", 0, NA))) %>% 
-  gather("Day_key", "Day_content", Day_Clin_In_PT:Day_Trump_In_C) %>% 
+  mutate(Cand_votedfor = ifelse(ident_targ == "Clin", 1, 
+                                ifelse(ident_targ == "Trump", 0, NA))) %>% 
+  pivot_longer(Day_Clin_In_PT:Day_Trump_In_C,
+               names_to = c("Day_key")) %>% 
+  rename(Day_content = value) %>% 
   mutate(Day_key = as.factor(Day_key)) %>% 
   filter(!is.na(Day_content)) %>% 
   mutate(inoutgroup = fct_collapse(Day_key, 
@@ -143,33 +150,36 @@ select(-MFQSelf_6, -MFQSelf_22, -MFQTrump_6, -MFQTrump_22, -MFQClin_6,
                                             "Day_Trump_In_C")))
 
 clean_data[,1:31] <- sapply(clean_data[,1:31],as.numeric)
-clean_data[,34:36] <- sapply(clean_data[,34:36],as.numeric)
+clean_data[,33:35] <- sapply(clean_data[,33:35],as.numeric)
 
-clean_data2 <- clean_data %>%
-  mutate(IG_ave = mean(IG_Score)) %>% 
-  filter(!is.na(IG_ave)) %>% 
-  select(-Drop) %>% 
+  #average of ingroup-identification for each subjut
+clean_data2 <- clean_data %>% 
   #effects coding for group with ingroup = .5 and outgorup = -.5, for PT .5 = PT and Control = -.5
   mutate(inoutgroup_effects = ifelse(inoutgroup == "Ingroup", .5,
                                      ifelse(inoutgroup == "Outgroup", -.5, NA)),
          PT_effects = ifelse(PT == "PT", .5, 
                              ifelse(PT == "control", -.5, NA)),
-         MFQStereo = ifelse(targ_cand == "Clinton", MFQClin, 
-                            ifelse(targ_cand == "Trump", MFQTrump, NA))) %>% 
+         targ_cand = ifelse(targ_cand == "Clinton", 1, 
+                            ifelse(targ_cand == "Trump", 2, NA)),
+         MFQStereo = ifelse(targ_cand == 1, MFQClin, 
+                            ifelse(targ_cand == 2, MFQTrump, NA))) %>% 
   #grand mean centering MFQ for self
-  mutate(MFQSelf_c = MFQSelf - mean(MFQSelf)) %>%  
+  mutate(MFQSelf_c = MFQSelf - mean(MFQSelf, na.rm = TRUE),
+         MFQStereo_c = MFQStereo - mean(MFQStereo, na.rm = TRUE)) %>%  
   #removing people who failed the manipulation check
-  filter(targ_cand == "Clinton" & Man_TargVote == 1 | 
-           targ_cand == "Trump" & Man_TargVote == 2) %>%
+  filter(targ_cand == 1 & Man_TargVote == 1 | 
+           targ_cand == 2 & Man_TargVote == 2) %>%
   select(-Day_content, -Day_key) %>% 
-  #effects coding candidate target voted for
-  mutate(Targ_Cand_effectscoded = ifelse(targ_cand == "Clinton", .5, 
-                                         ifelse(targ_cand == "Trump", -.5, NA)),
-         MFQStereo_c = MFQStereo - mean(MFQStereo, na.rm = TRUE))
+  #effects coding candidate
+  mutate(Targ_Cand_effectscoded = ifelse(targ_cand == "1", .5, 
+                                         ifelse(targ_cand == "2", -.5, NA))) %>% 
+  group_by(subid) %>% 
+  mutate(ident_subave = mean(ident)) %>% 
+  filter(!is.na(ident_subave))
 
 #for some reason, this wouldn't work in the piping above, so had to hard code it
 #grand mean centering for ingroup identification
-clean_data2$ident_c <- clean_data2$IG_ave - mean(clean_data2$IG_ave, na.rm = TRUE)
+clean_data2$ident_c <- clean_data2$ident_subave - mean(clean_data2$ident_subave, na.rm = TRUE)
 clean_data2$Gender <- as.factor(clean_data2$Gender)
 levels(clean_data2$Gender) <- c("Male", "Female", "Other")
 clean_data2$Race <- as.factor(clean_data2$Race)
@@ -182,68 +192,12 @@ levels(clean_data2$Race) <- c("American Indian/Native Alaskan",
                              "Multiracial",
                              "Other")
 
-#data with just the variables for analysis for stereotyping
+#data with just the variables for the analysis
 stereo_analysis <- clean_data2 %>% 
   select(subid, MFQ_Number, MFQSelf_c, MFQStereo_c, MFQTarg, ident_c, PT_effects, 
          inoutgroup_effects, Man_PT, par_cand, MFQStereo) %>%
   unique() %>% 
   na.omit()
-```
-
-# MFQ alpha
-
-## Overall alpha
-
-```{r MFQ alphas}
-MFQ_alpha <- clean_data2 %>% 
-  select(subid, MFQ_Number, MFQSelf) %>% 
-  unique() %>% 
-  na.omit() %>% 
-  pivot_wider(names_from = MFQ_Number, values_from = MFQSelf)
-
-MFQ_alpha <- MFQ_alpha[-1] 
-
-psych::alpha(MFQ_alpha)
-```
-
-## Harm alpha
-
-```{r harm alpha}
-harm <- MFQ_alpha %>% 
-  select(c("1", "7", "12", "17", "23", "28"))
-psych::alpha(harm)
-```
-
-## Fairness alpha
-
-```{r fairness alpha}
-fair <- MFQ_alpha %>% 
-  select(c("2", "8", "13", "18", "24", "29"))
-psych::alpha(fair)
-```
-
-## Ingroup alpha
-
-```{r ingroup alpha}
-ingroup <- MFQ_alpha %>% 
-  select(c("3", "9", "14", "25", "30"))
-psych::alpha(ingroup)
-```
-
-## Authority alpha
-
-```{r authority alpha}
-authority <- MFQ_alpha %>% 
-  select(c("4", "10", "15", "26", "31"))
-psych::alpha(authority)
-```
-
-## Purity alpha
-
-```{r purity alpha}
-purity <- MFQ_alpha %>% 
-  select(c("5", "11", "16", "27", "32"))
-psych::alpha(purity)
 ```
 
 # Stereotype moderator analysis
@@ -270,8 +224,8 @@ describe(stereo_analysis$MFQStereo_c)
 describe(stereo_analysis$ident_c)
 
 proj_stereo_effects <- effect(term = "MFQSelf_c:MFQStereo_c:ident_c", 
-                           xlevels = list(ident_c = c(-1.78, 0, 1.78), 
-                                         MFQStereo_c = c(-1.48, 0, 1.48)), 
+                           xlevels = list(ident_c = c(-1.8, 0, 1.8), 
+                                         MFQStereo_c = c(-1.67, 0, 1.67)), 
                            mod = projmodel_stereo)
 
 proj_stereo_int <- as.data.frame(proj_stereo_effects)
@@ -279,13 +233,13 @@ proj_stereo_int <- as.data.frame(proj_stereo_effects)
 proj_stereo_int$Stereotyping <- as.factor(proj_stereo_int$MFQStereo_c)
 proj_stereo_int$Identification <- as.factor(proj_stereo_int$ident_c)
 
-ident_label <- c("-1.78" = "Low identification \n (1 SD below)", 
+ident_label <- c("-1.8" = "Low identification \n (1 SD below)", 
                  "0" = "Average identification",
-                 "1.78" = "High identificatiion \n (1 SD above)")
+                 "1.8" = "High identificatiion \n (1 SD above)")
 
-stereo_label <- c("-1.48" = "Low stereotyping \n (1 SD below)",
+stereo_label <- c("-1.67" = "Low stereotyping \n (1 SD below)",
                   "0" = "Average stereotyping",
-                  "1.48" = "High stereotyping \n (1 SD above)")
+                  "1.67" = "High stereotyping \n (1 SD above)")
 ```
 
 ```{r proj stereo ident plot}
@@ -297,7 +251,7 @@ ggplot(proj_stereo_int, aes(MFQSelf_c,
               aes(linetype = Identification)) +
   facet_wrap(~Stereotyping, labeller = 
                labeller(Stereotyping = stereo_label)) +
-  scale_linetype_manual("Identification", breaks = c(-1.78, 0, 1.78), 
+  scale_linetype_manual("Identification", breaks = c(-1.8, 0, 1.8), 
                        labels = c("Low (1 SD below)", 
                                   "Average",
                                   "High (1 SD above)"),
@@ -313,7 +267,7 @@ ggplot(proj_stereo_int, aes(MFQSelf_c,
 
 ```{r three-way stereo set-up}
 initial_study_3way <- effect(term = "MFQSelf_c:inoutgroup_effects:ident_c", 
-                           xlevels = list(ident_c = c(-1.78, 0, 1.78), 
+                           xlevels = list(ident_c = c(-1.8, 0, 1.8), 
                                          inoutgroup_effects = c(-.5,.5)), 
                            mod = projmodel_stereo)
 
@@ -375,8 +329,8 @@ These results demonstrate that our significant three-way interaction from before
 
 ```{r int proj, stereo, group, and ident set-up}
 proj_stereo_4way <- effect(term = "MFQSelf_c:MFQStereo_c:inoutgroup_effects:ident_c", 
-                           xlevels = list(ident_c = c(-1.78, 0, 1.78), 
-                                         MFQStereo_c = c(-1.48, 0, 1.48),
+                           xlevels = list(ident_c = c(-1.8, 0, 1.8), 
+                                         MFQStereo_c = c(-1.67, 0, 1.67),
                                          inoutgroup_effects = c(-.5,.5)), 
                            mod = projmodel_stereo)
 
@@ -401,7 +355,7 @@ ggplot(proj_stereo_4way, aes(MFQSelf_c,
               aes(linetype = Identification)) +
   facet_grid(vars(TargetGroup), vars(Stereotyping),
              labeller = labeller(Stereotyping = stereo_label)) +
-  scale_linetype_manual("Identification", breaks = c(-1.78, 0, 1.78), 
+  scale_linetype_manual("Identification", breaks = c(-1.8, 0, 1.8), 
                        labels = c("Low (1 SD below)", 
                                   "Average",
                                   "High (1 SD above)"),
@@ -469,14 +423,53 @@ tab_model(projmodel_stereo_trump,
           title = "Projection moderated by stereotyping with Trump supporter data only")
 ```
 
-```{r int proj, stereo set-up}
-proj_stereo_only <- effect(term = "MFQSelf_c:MFQStereo_c", 
-                           xlevels = list(MFQStereo_c = c(-1.35, 0, 1.35)), 
-                           mod = projmodel_stereo)
+# Candidate moderator analysis
 
-proj_stereo_only <- as.data.frame(proj_stereo_only)
+```{r cand only analysis}
+#model
+projmodel_cand <- lmer(MFQTarg ~ MFQSelf_c * par_cand *
+                                    inoutgroup_effects * ident_c +
+                                    (MFQSelf_c|subid), 
+                                 data = stereo_analysis)
 
-proj_stereo_only$Stereotyping <- as.factor(proj_stereo_only$MFQStereo_c)
+#results
+tab_model(projmodel_cand,
+          title = "Projection moderated by candidate")
+
+#confidence intervals for ones that rounding to two in tab_model isn't enough info
+confint(projmodel_cand)
+```
+
+## Projection by candidate support and target group
+
+```{r three-way cand only set-up}
+initial_study_3way_cand <- effect(term = "MFQSelf_c:par_cand:inoutgroup_effects", 
+                           xlevels = list(inoutgroup_effects = c(-.5, .5), 
+                                         par_cand = c("Clinton", "Trump")), 
+                           mod = projmodel_cand)
+
+initial_study_3way_cand <- as.data.frame(initial_study_3way_cand)
+
+initial_study_3way_cand$Group <- as.factor(initial_study_3way_cand$inoutgroup_effects)
+initial_study_3way_cand$Candidate <- as.factor(initial_study_3way_cand$par_cand)
+```
+
+```{r three-way plot cand BW}
+ggplot(initial_study_3way_cand, aes(MFQSelf_c, 
+                             fit, 
+                             group = Group, 
+                             color = Group)) +
+  geom_smooth(method = "lm", se = FALSE, size = .7, colour = "black", 
+              aes(linetype = Group)) +
+  facet_wrap(~Candidate) +
+  scale_linetype_manual("Group", breaks = c(-.5, .5), 
+                       labels = c("Out-group", "In-group"),
+                       values = c("solid", 
+                                   "dashed")) +
+  theme_minimal() +
+  labs(title = "Projection predicted by candidate support and group membership",
+       x = "MFQ responses for self",
+       y = "MFQ responses for target")
 ```
 
 # Stereotyping moderator analysis adding participant political affiliation
